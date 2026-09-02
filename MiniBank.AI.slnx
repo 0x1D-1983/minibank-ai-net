@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="MiniBank.AI/MiniBank.AI.csproj" />
+  <Project Path="MiniBank.Console/MiniBank.Console.csproj" />
+</Solution>
