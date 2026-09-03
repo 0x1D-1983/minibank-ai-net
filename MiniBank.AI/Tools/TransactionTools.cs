@@ -16,7 +16,7 @@ public sealed class TransactionTools
         _bank = bank;
     }
 
-    [Description("List the deposits made to a specific account.")]
+    [Description("List only the deposits made to a specific account. Do not use this when the user asks for full history or every transaction.")]
     public async Task<List<TransactionSummary>> GetDepositsAsync(
         [Description("The account number whose deposits should be listed.")] long accountNumber)
     {
@@ -26,7 +26,7 @@ public sealed class TransactionTools
             .ToList();
     }
 
-    [Description("List the full transaction history of a specific account.")]
+    [Description("List every transaction on a specific account, including deposits and other actions. Use this when the user asks for history, everything that happened, or all transactions.")]
     public async Task<List<TransactionSummary>> GetAccountHistoryAsync(
         [Description("The account number whose history should be listed.")] long accountNumber)
     {

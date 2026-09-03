@@ -13,7 +13,7 @@ public sealed class CustomerTools
         _bank = bank;
     }
 
-    [Description("Get how much money a customer has in total across all of their accounts.")]
+    [Description("Get how much money a named customer has in total across all of their accounts. Use this when the user asks for a customer's balance without giving an account number.")]
     public async Task<decimal> GetOwnerTotalBalanceAsync(
         [Description("The customer's full name.")] string owner)
     {

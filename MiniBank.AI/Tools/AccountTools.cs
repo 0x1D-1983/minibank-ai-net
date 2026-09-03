@@ -15,9 +15,9 @@ public sealed class AccountTools
         _bank = bank;
     }
 
-    [Description("Get the current balance of a bank account.")]
+    [Description("Get the current balance of one account. Call only when the user supplied that account number. Do not invent an account number. If the user named a customer instead, use get_owner_total_balance.")]
     public async Task<decimal> GetBalanceAsync(
-        [Description("The account number to look up.")] long accountNumber)
+        [Description("The account number supplied by the user.")] long accountNumber)
     {
         var account = await RequireAccountAsync(accountNumber);
         return await account.GetBalanceAsync();

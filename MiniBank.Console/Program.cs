@@ -36,7 +36,7 @@ try
         new AccountTools(bank),
         new CustomerTools(bank),
         new TransactionTools(bank),
-        loggerFactory).Agent;
+        loggerFactory: loggerFactory).Agent;
 
     AgentSession session = await agent.CreateSessionAsync();
 

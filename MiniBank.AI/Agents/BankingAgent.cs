@@ -1,6 +1,7 @@
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using MiniBank.AI.Telemetry;
 using MiniBank.AI.Tools;
 using OllamaSharp;
@@ -20,17 +21,19 @@ public sealed class BankingAgent
         AccountTools accountTools,
         CustomerTools customerTools,
         TransactionTools transactionTools,
-        ILoggerFactory loggerFactory)
+        IChatClient? chatClient = null,
+        ILoggerFactory? loggerFactory = null)
     {
         ArgumentNullException.ThrowIfNull(accountTools);
         ArgumentNullException.ThrowIfNull(customerTools);
         ArgumentNullException.ThrowIfNull(transactionTools);
-        ArgumentNullException.ThrowIfNull(loggerFactory);
+
+        loggerFactory ??= NullLoggerFactory.Instance;
+        chatClient ??= new OllamaApiClient(new Uri(Endpoint), ModelName);
 
         var toolLogger = loggerFactory.CreateLogger<TracingAIFunction>();
 
-        IChatClient ollama = new OllamaApiClient(new Uri(Endpoint), ModelName);
-        IChatClient chatClient = ollama
+        chatClient = chatClient
             .AsBuilder()
             .Use(inner => new TracingChatClient(
                 inner,
@@ -39,36 +42,48 @@ public sealed class BankingAgent
             .UseLogging(loggerFactory)
             .Build();
 
+        var tools = new List<AITool>
+        {
+            Tool(accountTools.GetBalanceAsync, "get_balance", toolLogger),
+            Tool(accountTools.FindAccountsByOwnerAsync, "find_accounts_by_owner", toolLogger),
+            Tool(accountTools.GetTotalValueAsync, "get_total_value", toolLogger),
+            Tool(accountTools.GetHighestBalanceAccountAsync, "get_highest_balance_account", toolLogger),
+            Tool(customerTools.GetOwnerTotalBalanceAsync, "get_owner_total_balance", toolLogger),
+            Tool(customerTools.CountDepositsByOwnerAsync, "count_deposits_by_owner", toolLogger),
+            Tool(transactionTools.GetDepositsAsync, "get_deposits", toolLogger),
+            Tool(transactionTools.GetAccountHistoryAsync, "get_account_history", toolLogger)
+        };
+
         var agent = chatClient.AsAIAgent(
-            instructions:
-                """
-                You are a helpful MiniBank assistant.
-                Always use tools to answer banking questions. Never invent balances, totals, or transactions.
-                Choose the matching tool:
-                - Account balance → get_balance
-                - Customer's total money across their accounts → get_owner_total_balance
-                - How many deposits a customer has made → count_deposits_by_owner
-                - Total value of all accounts in the bank → get_total_value
-                - Account with the highest balance → get_highest_balance_account
-                - Deposits made to a specific account → get_deposits
-                - List a customer's accounts → find_accounts_by_owner
-                - Full history of an account → get_account_history
-                Format currency in GBP, for example £1,532.42.
-                Keep answers brief.
-                """,
-            name: "BankingAgent",
-            description: "Answers MiniBank account questions by calling banking tools.",
-            tools:
-            [
-                Tool(accountTools.GetBalanceAsync, "get_balance", toolLogger),
-                Tool(accountTools.FindAccountsByOwnerAsync, "find_accounts_by_owner", toolLogger),
-                Tool(accountTools.GetTotalValueAsync, "get_total_value", toolLogger),
-                Tool(accountTools.GetHighestBalanceAccountAsync, "get_highest_balance_account", toolLogger),
-                Tool(customerTools.GetOwnerTotalBalanceAsync, "get_owner_total_balance", toolLogger),
-                Tool(customerTools.CountDepositsByOwnerAsync, "count_deposits_by_owner", toolLogger),
-                Tool(transactionTools.GetDepositsAsync, "get_deposits", toolLogger),
-                Tool(transactionTools.GetAccountHistoryAsync, "get_account_history", toolLogger)
-            ],
+            new ChatClientAgentOptions
+            {
+                Name = "BankingAgent",
+                Description = "Answers MiniBank account questions by calling banking tools.",
+                ChatOptions = new ChatOptions
+                {
+                    Instructions =
+                        """
+                        You are a helpful MiniBank assistant.
+                        Always use tools to answer banking questions. Never invent balances, totals, transactions, or account numbers.
+
+                        Choose the matching tool:
+                        - get_balance: ONLY when the user supplied a specific account number. Never guess or invent one.
+                        - get_owner_total_balance: how much a named customer has, when no account number was given.
+                        - count_deposits_by_owner: how many deposits a named customer has made.
+                        - get_total_value: total of every account in the bank.
+                        - get_highest_balance_account: which account has the highest balance.
+                        - get_deposits: ONLY deposits on a numbered account. Do not use this for full history.
+                        - find_accounts_by_owner: list a customer's accounts.
+                        - get_account_history: every transaction on a numbered account. Use this for history or "everything that happened".
+
+                        Include account numbers from tool results in your answer.
+                        Format currency in GBP, for example £1,532.42.
+                        Keep answers brief.
+                        """,
+                    Temperature = 0f,
+                    Tools = tools
+                }
+            },
             loggerFactory: loggerFactory);
 
         Agent = new TracingAgent(
