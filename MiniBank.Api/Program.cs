@@ -113,27 +113,41 @@ public sealed record ChatResponse(string Output, IReadOnlyList<string> ExecutorI
 file sealed class InMemoryAccountRepository : IAccountRepository
 {
     private readonly Dictionary<long, Account> _accounts = new();
+    private readonly object _sync = new();
 
     public Task AddAccountAsync(Account account)
     {
-        _accounts[account.AccountNumber] = account;
+        lock (_sync)
+            _accounts[account.AccountNumber] = account;
         return Task.CompletedTask;
     }
 
     public Task<Account?> FindByIdAsync(long accountNumber)
-        => Task.FromResult(_accounts.TryGetValue(accountNumber, out var account) ? account : null);
+    {
+        lock (_sync)
+            return Task.FromResult(_accounts.TryGetValue(accountNumber, out var account) ? account : null);
+    }
 
     public Task<List<Account>> AllAsync()
-        => Task.FromResult(_accounts.Values.ToList());
+    {
+        lock (_sync)
+            return Task.FromResult(_accounts.Values.ToList());
+    }
 
     public Task<List<Account>> FindByOwnerAsync(string owner)
-        => Task.FromResult(_accounts.Values
-            .Where(account => account.Owner.Equals(owner, StringComparison.OrdinalIgnoreCase))
-            .ToList());
+    {
+        lock (_sync)
+        {
+            return Task.FromResult(_accounts.Values
+                .Where(account => account.Owner.Equals(owner, StringComparison.OrdinalIgnoreCase))
+                .ToList());
+        }
+    }
 
     public Task UpdateAccountAsync(Account account)
     {
-        _accounts[account.AccountNumber] = account;
+        lock (_sync)
+            _accounts[account.AccountNumber] = account;
         return Task.CompletedTask;
     }
 }
