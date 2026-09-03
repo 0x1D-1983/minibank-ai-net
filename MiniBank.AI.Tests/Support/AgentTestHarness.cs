@@ -4,6 +4,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using MiniBank.AI.Agents;
 using MiniBank.AI.Tools;
+using MiniBank.AI.Workflows;
 using OllamaSharp;
 
 namespace MiniBank.AI.Tests.Support;
@@ -15,19 +16,49 @@ internal sealed class AgentTestHarness
 
     public RecordingAccountRepository Repository { get; }
     public RecordingChatClient Chat { get; }
+    public Bank Bank { get; }
     public AIAgent Agent { get; }
+    public BankingWorkflow? Workflow { get; }
+    public RecordingWriteApprover? Approver { get; }
 
     private AgentTestHarness(
         RecordingAccountRepository repository,
         RecordingChatClient chat,
-        AIAgent agent)
+        Bank bank,
+        AIAgent agent,
+        BankingWorkflow? workflow,
+        RecordingWriteApprover? approver)
     {
         Repository = repository;
         Chat = chat;
+        Bank = bank;
         Agent = agent;
+        Workflow = workflow;
+        Approver = approver;
     }
 
-    public static async Task<AgentTestHarness> CreateAsync()
+    public static Task<AgentTestHarness> CreateAsync()
+        => CreateCoreAsync(includeWorkflow: false);
+
+    public static Task<AgentTestHarness> CreateWorkflowAsync(bool approveWrites = true)
+        => CreateCoreAsync(includeWorkflow: true, approveWrites);
+
+    public async Task<string> AskAsync(string question)
+    {
+        if (Workflow is not null)
+            return await Workflow.RunAsync(question);
+
+        var response = await Agent.RunAsync(question);
+        return response.Text;
+    }
+
+    public Task<WorkflowRunResult> AskDetailedAsync(string question)
+    {
+        Assert.NotNull(Workflow);
+        return Workflow.RunDetailedAsync(question);
+    }
+
+    private static async Task<AgentTestHarness> CreateCoreAsync(bool includeWorkflow, bool approveWrites = true)
     {
         await EnsureOllamaAsync();
 
@@ -39,19 +70,26 @@ internal sealed class AgentTestHarness
         IChatClient ollama = new OllamaApiClient(new Uri(Endpoint), ModelName);
         var chat = new RecordingChatClient(ollama);
 
-        var agent = new BankingAgent(
-            new AccountTools(bank),
-            new CustomerTools(bank),
-            new TransactionTools(bank),
-            chatClient: chat).Agent;
+        var accountTools = new AccountTools(bank);
+        var customerTools = new CustomerTools(bank);
+        var transactionTools = new TransactionTools(bank);
+        var agent = new BankingAgent(accountTools, customerTools, transactionTools, chatClient: chat).Agent;
 
-        return new AgentTestHarness(repository, chat, agent);
-    }
+        BankingWorkflow? workflow = null;
+        RecordingWriteApprover? approver = null;
+        if (includeWorkflow)
+        {
+            approver = new RecordingWriteApprover(approveWrites);
+            workflow = BankingWorkflow.Create(
+                accountTools,
+                customerTools,
+                transactionTools,
+                new OperationTools(bank),
+                chatClient: chat,
+                approver: approver);
+        }
 
-    public async Task<string> AskAsync(string question)
-    {
-        var response = await Agent.RunAsync(question);
-        return response.Text;
+        return new AgentTestHarness(repository, chat, bank, agent, workflow, approver);
     }
 
     private static async Task EnsureOllamaAsync()

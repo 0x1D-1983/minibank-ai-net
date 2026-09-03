@@ -4,19 +4,15 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using MiniBank.AI.Telemetry;
 using MiniBank.AI.Tools;
-using OllamaSharp;
 
 namespace MiniBank.AI.Agents;
 
 /// <summary>
-/// A single-agent banking assistant. The LLM decides when to call tools;
-/// there is no workflow graph.
+/// Query specialist used by the workflow's Query Executor. It only has READ tools;
+/// deposits, withdrawals, and transfers are never invoked from here.
 /// </summary>
 public sealed class BankingAgent
 {
-    private const string Endpoint = "http://localhost:11434";
-    private const string ModelName = "qwen2.5:1.5b-instruct";
-
     public BankingAgent(
         AccountTools accountTools,
         CustomerTools customerTools,
@@ -29,41 +25,21 @@ public sealed class BankingAgent
         ArgumentNullException.ThrowIfNull(transactionTools);
 
         loggerFactory ??= NullLoggerFactory.Instance;
-        chatClient ??= new OllamaApiClient(new Uri(Endpoint), ModelName);
-
         var toolLogger = loggerFactory.CreateLogger<TracingAIFunction>();
+        chatClient = MiniBankChat.Create(chatClient, loggerFactory);
 
-        chatClient = chatClient
-            .AsBuilder()
-            .Use(inner => new TracingChatClient(
-                inner,
-                loggerFactory.CreateLogger<TracingChatClient>(),
-                ModelName))
-            .UseLogging(loggerFactory)
-            .Build();
-
-        var tools = new List<AITool>
-        {
-            Tool(accountTools.GetBalanceAsync, "get_balance", toolLogger),
-            Tool(accountTools.FindAccountsByOwnerAsync, "find_accounts_by_owner", toolLogger),
-            Tool(accountTools.GetTotalValueAsync, "get_total_value", toolLogger),
-            Tool(accountTools.GetHighestBalanceAccountAsync, "get_highest_balance_account", toolLogger),
-            Tool(customerTools.GetOwnerTotalBalanceAsync, "get_owner_total_balance", toolLogger),
-            Tool(customerTools.CountDepositsByOwnerAsync, "count_deposits_by_owner", toolLogger),
-            Tool(transactionTools.GetDepositsAsync, "get_deposits", toolLogger),
-            Tool(transactionTools.GetAccountHistoryAsync, "get_account_history", toolLogger)
-        };
+        var tools = QueryTools.Create(accountTools, customerTools, transactionTools, toolLogger);
 
         var agent = chatClient.AsAIAgent(
             new ChatClientAgentOptions
             {
-                Name = "BankingAgent",
-                Description = "Answers MiniBank account questions by calling banking tools.",
+                Name = "QueryAgent",
+                Description = "Answers MiniBank lookup questions using read-only tools.",
                 ChatOptions = new ChatOptions
                 {
                     Instructions =
                         """
-                        You are a helpful MiniBank assistant.
+                        You are a helpful MiniBank assistant for lookup questions.
                         Always use tools to answer banking questions. Never invent balances, totals, transactions, or account numbers.
 
                         Choose the matching tool:
@@ -76,6 +52,8 @@ public sealed class BankingAgent
                         - find_accounts_by_owner: list a customer's accounts.
                         - get_account_history: every transaction on a numbered account. Use this for history or "everything that happened".
 
+                        You cannot move money. If the user asks to deposit, withdraw, or transfer, say that must go through approval.
+
                         Include account numbers from tool results in your answer.
                         Format currency in GBP, for example £1,532.42.
                         Keep answers brief.
@@ -86,18 +64,8 @@ public sealed class BankingAgent
             },
             loggerFactory: loggerFactory);
 
-        Agent = new TracingAgent(
-            agent.AsBuilder()
-                .UseOpenTelemetry(
-                    MiniBankActivitySources.Agent.Name,
-                    otel => otel.EnableSensitiveData = true)
-                .Build(),
-            loggerFactory.CreateLogger<TracingAgent>(),
-            ModelName);
+        Agent = MiniBankChat.Instrument(agent, loggerFactory);
     }
 
     public AIAgent Agent { get; }
-
-    private static AIFunction Tool(Delegate method, string name, ILogger logger)
-        => new TracingAIFunction(AIFunctionFactory.Create(method, name: name), logger);
 }

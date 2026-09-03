@@ -1,13 +1,12 @@
 ﻿using Banking.Domain.Models;
 using Banking.Repositories;
 using Banking.Services;
-using Microsoft.Agents.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using MiniBank.AI.Agents;
 using MiniBank.AI.Telemetry;
 using MiniBank.AI.Tools;
+using MiniBank.AI.Workflows;
 using Serilog;
 
 Directory.SetCurrentDirectory(AppContext.BaseDirectory);
@@ -31,19 +30,25 @@ try
     var logger = loggerFactory.CreateLogger("MiniBank.Console");
 
     var bank = await CreateBankAsync();
-
-    AIAgent agent = new BankingAgent(
+    var workflow = BankingWorkflow.Create(
         new AccountTools(bank),
         new CustomerTools(bank),
         new TransactionTools(bank),
-        loggerFactory: loggerFactory).Agent;
+        new OperationTools(bank),
+        loggerFactory: loggerFactory);
 
-    AgentSession session = await agent.CreateSessionAsync();
-
-    var question = "What is the balance of account 20001?";
-    logger.LogInformation("Sending question to BankingAgent: {Question}", question);
-
-    Console.WriteLine(await agent.RunAsync(question, session));
+    foreach (var question in new[]
+    {
+        "What is the balance of account 20001?",
+        "Transfer 50 pounds from account 10001 to account 20001."
+    })
+    {
+        logger.LogInformation("Sending question to MiniBank workflow: {Question}", question);
+        var result = await workflow.RunDetailedAsync(question);
+        Console.WriteLine($"[{string.Join(" → ", result.ExecutorIds)}]");
+        Console.WriteLine(result.Output);
+        Console.WriteLine();
+    }
 
     await app.StopAsync();
 }

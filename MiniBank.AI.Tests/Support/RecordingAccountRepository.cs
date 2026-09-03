@@ -10,6 +10,7 @@ internal sealed class RecordingAccountRepository : IAccountRepository
     public List<long> FindByIdArgs { get; } = [];
     public List<string> FindByOwnerArgs { get; } = [];
     public int AllCallCount { get; private set; }
+    public int UpdateCallCount { get; private set; }
 
     public Task AddAccountAsync(Account account)
     {
@@ -39,6 +40,7 @@ internal sealed class RecordingAccountRepository : IAccountRepository
 
     public Task UpdateAccountAsync(Account account)
     {
+        UpdateCallCount++;
         _accounts[account.AccountNumber] = account;
         return Task.CompletedTask;
     }
@@ -48,5 +50,6 @@ internal sealed class RecordingAccountRepository : IAccountRepository
         FindByIdArgs.Clear();
         FindByOwnerArgs.Clear();
         AllCallCount = 0;
+        UpdateCallCount = 0;
     }
 }
