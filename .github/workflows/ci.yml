@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  CONFIGURATION: Release
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore MiniBank.AI.slnx
+
+      - name: Build
+        run: dotnet build MiniBank.AI.slnx --no-restore --configuration ${{ env.CONFIGURATION }}
+
+      # - name: Unit tests
+      #   run: dotnet test MiniBank.AI.slnx --no-build --configuration ${{ env.CONFIGURATION }} --filter FullyQualifiedName~CustomerToolsTests --verbosity normal
+
+  # agent-tests:
+  #   name: Agent tests (Ollama)
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 60
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Set up .NET
+  #       uses: actions/setup-dotnet@v4
+  #       with:
+  #         dotnet-version: 10.0.x
+  #
+  #     - name: Install Ollama
+  #       run: curl -fsSL https://ollama.com/install.sh | sh
+  #
+  #     - name: Start Ollama
+  #       run: |
+  #         if ! curl -sf http://127.0.0.1:11434/api/tags >/dev/null; then
+  #           ollama serve &
+  #         fi
+  #         timeout 60 bash -c 'until curl -sf http://127.0.0.1:11434/api/tags >/dev/null; do sleep 1; done'
+  #
+  #     - name: Pull model
+  #       run: ollama pull qwen2.5:1.5b-instruct
+  #
+  #     - name: Agent tests
+  #       run: dotnet test MiniBank.AI.slnx --configuration ${{ env.CONFIGURATION }} --filter FullyQualifiedName!~CustomerToolsTests --verbosity normal
