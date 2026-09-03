@@ -1,8 +1,10 @@
 using System.ComponentModel;
-using Banking.Domain.Exceptions;
-using Banking.Domain.Models;
+using MiniBank.Domain.Exceptions;
+using MiniBank.Domain.Models;
 using Banking.Services;
 using MiniBank.AI.Models;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace MiniBank.AI.Tools;
 

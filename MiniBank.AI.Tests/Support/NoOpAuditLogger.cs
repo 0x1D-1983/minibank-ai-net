@@ -1,5 +1,6 @@
-using Banking.Domain.Models;
+using MiniBank.Domain.Models;
 using Banking.Services;
+using System.Threading.Tasks;
 
 namespace MiniBank.AI.Tests.Support;
 

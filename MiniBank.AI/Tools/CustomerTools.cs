@@ -1,6 +1,9 @@
 using System.ComponentModel;
-using Banking.Domain.Models;
+using MiniBank.Domain.Models;
 using Banking.Services;
+using System.Threading.Tasks;
+using System.Linq;
+using System;
 
 namespace MiniBank.AI.Tools;
 

@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
@@ -23,8 +23,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\MiniBankDotnet\Banking.Domain\Banking.Domain.csproj" />
-    <ProjectReference Include="..\..\MiniBankDotnet\Banking.Services\Banking.Services.csproj" />
+    <ProjectReference Include="..\MiniBank.Domain\MiniBank.Domain.csproj" />
+    <ProjectReference Include="..\MiniBank.Services\MiniBank.Services.csproj" />
   </ItemGroup>
 
 </Project>

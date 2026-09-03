@@ -1,4 +1,4 @@
-using Banking.Domain.Models;
+using MiniBank.Domain.Models;
 using Banking.Services;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -6,6 +6,9 @@ using MiniBank.AI.Agents;
 using MiniBank.AI.Tools;
 using MiniBank.AI.Workflows;
 using OllamaSharp;
+using System.Threading.Tasks;
+using System.Net.Http;
+using System;
 
 namespace MiniBank.AI.Tests.Support;
 

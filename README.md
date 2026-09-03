@@ -1,16 +1,34 @@
 # MiniBank AI
 
-A Microsoft Agent Framework assistant for the MiniBankDotnet banking domain. Lookups go through read-only tools. Deposits, withdrawals, and transfers cannot be invoked by the model; they run only after a workflow approval step.
+A Microsoft Agent Framework assistant for a small banking domain. Lookups go through read-only tools. Deposits, withdrawals, and transfers cannot be invoked by the model; they run only after a workflow approval step.
 
-This repo sits next to [`MiniBankDotnet`](../MiniBankDotnet) and references its domain and services projects.
+The bank itself lives in this repo: accounts, concurrency, persistence, and the `Bank` service. The console seeds an in-memory bank and chats through `BankingWorkflow`.
 
 ## Layout
 
 | Project | Role |
 |---|---|
+| `MiniBank.Domain` | Accounts (`CurrentAccount`, `SavingsAccount`), exceptions, per-account locks |
+| `MiniBank.Repositories` | `IAccountRepository` and `PostgresAccountRepository` |
+| `MiniBank.Services` | `Bank` (deposit / withdraw / transfer) and `IAuditLogger` |
 | `MiniBank.AI` | Agents, tools, workflow, telemetry |
-| `MiniBank.Console` | Host + Serilog + OpenTelemetry; runs sample questions |
-| `MiniBank.AI.Tests` | Query-agent tests and workflow routing tests against live Ollama |
+| `MiniBank.Console` | Interactive host + Serilog + OpenTelemetry |
+| `MiniBank.AI.Tests` | Query-agent tests, workflow routing tests, and owner-resolution unit tests |
+
+Solution: `MiniBank.AI.slnx`.
+
+## Banking domain
+
+`Bank` is the only write path. It loads accounts from `IAccountRepository`, mutates them, persists, and audits.
+
+| Type | Extra rule |
+|---|---|
+| `CurrentAccount` | Withdrawals may use an overdraft limit |
+| `SavingsAccount` | Withdrawals cannot exceed the balance; can apply interest |
+
+Account mutation is lock-gated (`AsyncFriendlyLock`). Transfers take both locks in account-number order via `Account.LockAllAsync` so two accounts cannot deadlock.
+
+The console and tests use an in-memory repository. `PostgresAccountRepository` (Npgsql) is the durable implementation of the same interface.
 
 ## Prerequisites
 
@@ -30,13 +48,13 @@ Optional: an OTLP collector at `http://localhost:4317` (see `MiniBank.Console/ap
 dotnet run --project MiniBank.Console
 ```
 
-The console seeds an in-memory bank, then runs a lookup and a transfer through the workflow.
+The console seeds the in-memory bank, then prompts for questions. Type `quit` (or `exit` / `q` / `bye`) to leave. After each turn it prints the executor path (`IntentAgent → QueryExecutor`, and so on) and the assistant reply.
 
 ```bash
 dotnet test MiniBank.AI.Tests/MiniBank.AI.Tests.csproj
 ```
 
-Tests fail immediately if Ollama is not reachable. They are not parallelized (`[Collection("Ollama")]`).
+Ollama-backed tests fail immediately if Ollama is not reachable. They are not parallelized (`[Collection("Ollama")]`). `CustomerToolsTests` does not need Ollama.
 
 ## Seed data
 
@@ -48,6 +66,8 @@ Tests fail immediately if Ollama is not reachable. They are not parallelized (`[
 | 20001 | Jane Doe | Current | £5,000.00 |
 
 Bank total: **£9,782.42**. John Smith’s combined balance: **£2,332.42**.
+
+Owner lookups accept a full name or a unique first name (`Alice` → Alice Example). Ambiguous tokens match nothing.
 
 ## Workflow
 
@@ -133,7 +153,7 @@ Listing deposits that already happened is a **query**, not `classify_deposit`.
 
 ### READ (query agent)
 
-Used only by `BankingAgent` / Query Executor. These never change balances.
+Used only by `BankingAgent` / Query Executor. These never change balances. Owner-name tools go through `OwnerResolver`.
 
 | Tool | When |
 |---|---|
@@ -168,13 +188,14 @@ Both talk to Ollama via `OllamaSharp` (`qwen2.5:1.5b-instruct`).
 
 ## Tests
 
-Tests use the real Ollama model, not a scripted chat client. `RecordingChatClient` records tool calls; `RecordingAccountRepository` records lookups and updates.
+Most tests use the real Ollama model, not a scripted chat client. `RecordingChatClient` records tool calls; `RecordingAccountRepository` records lookups and updates.
 
 | Class | What it asserts |
 |---|---|
 | `BankingAgentTests` | Unambiguous lookups: correct READ tool, arguments, and facts in the answer |
 | `BankingAgentAmbiguityTests` | Similar questions that must not pick the neighbouring tool |
 | `BankingWorkflowTests` | READ skips approval/transfer; approved transfer updates balances; rejected transfer does not |
+| `CustomerToolsTests` | Owner totals match a unique first name or a full name (no LLM) |
 
 Answer assertions check amounts and names, not exact LLM wording.
 

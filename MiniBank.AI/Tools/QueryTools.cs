@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using MiniBank.AI.Agents;

@@ -1,4 +1,4 @@
-﻿using Banking.Domain.Models;
+﻿using MiniBank.Domain.Models;
 using Banking.Repositories;
 using Banking.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,6 +8,11 @@ using MiniBank.AI.Telemetry;
 using MiniBank.AI.Tools;
 using MiniBank.AI.Workflows;
 using Serilog;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Linq;
+using System;
+using System.IO;
 
 Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 
