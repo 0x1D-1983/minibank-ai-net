@@ -1,6 +1,7 @@
 <Solution>
   <Project Path="MiniBank.AI/MiniBank.AI.csproj" />
   <Project Path="MiniBank.AI.Tests/MiniBank.AI.Tests.csproj" />
+  <Project Path="MiniBank.Api/MiniBank.Api.csproj" />
   <Project Path="MiniBank.Console/MiniBank.Console.csproj" />
   <Project Path="MiniBank.Domain/MiniBank.Domain.csproj" />
   <Project Path="MiniBank.Repositories/MiniBank.Repositories.csproj" />
