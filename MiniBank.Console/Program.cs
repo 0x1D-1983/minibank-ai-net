@@ -2,19 +2,55 @@
 using Banking.Repositories;
 using Banking.Services;
 using Microsoft.Agents.AI;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using MiniBank.AI.Agents;
+using MiniBank.AI.Telemetry;
 using MiniBank.AI.Tools;
+using Serilog;
 
-var bank = await CreateBankAsync();
+Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 
-AIAgent agent = new BankingAgent(
-    new AccountTools(bank),
-    new CustomerTools(bank),
-    new TransactionTools(bank)).Agent;
+var builder = Host.CreateApplicationBuilder(args);
 
-AgentSession session = await agent.CreateSessionAsync();
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .CreateLogger();
 
-Console.WriteLine(await agent.RunAsync("What is the balance of account 20001?", session));
+builder.Logging.ClearProviders();
+builder.Logging.AddSerilog(dispose: false);
+builder.Services.AddMiniBankTracing(builder.Configuration, "MiniBank.Console");
+
+try
+{
+    using var app = builder.Build();
+    await app.StartAsync();
+
+    var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
+    var logger = loggerFactory.CreateLogger("MiniBank.Console");
+
+    var bank = await CreateBankAsync();
+
+    AIAgent agent = new BankingAgent(
+        new AccountTools(bank),
+        new CustomerTools(bank),
+        new TransactionTools(bank),
+        loggerFactory).Agent;
+
+    AgentSession session = await agent.CreateSessionAsync();
+
+    var question = "What is the balance of account 20001?";
+    logger.LogInformation("Sending question to BankingAgent: {Question}", question);
+
+    Console.WriteLine(await agent.RunAsync(question, session));
+
+    await app.StopAsync();
+}
+finally
+{
+    await Log.CloseAndFlushAsync();
+}
 
 static async Task<Bank> CreateBankAsync()
 {

@@ -1,5 +1,7 @@
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
+using MiniBank.AI.Telemetry;
 using MiniBank.AI.Tools;
 using OllamaSharp;
 
@@ -17,15 +19,27 @@ public sealed class BankingAgent
     public BankingAgent(
         AccountTools accountTools,
         CustomerTools customerTools,
-        TransactionTools transactionTools)
+        TransactionTools transactionTools,
+        ILoggerFactory loggerFactory)
     {
         ArgumentNullException.ThrowIfNull(accountTools);
         ArgumentNullException.ThrowIfNull(customerTools);
         ArgumentNullException.ThrowIfNull(transactionTools);
+        ArgumentNullException.ThrowIfNull(loggerFactory);
 
-        IChatClient chatClient = new OllamaApiClient(new Uri(Endpoint), ModelName);
+        var toolLogger = loggerFactory.CreateLogger<TracingAIFunction>();
 
-        Agent = chatClient.AsAIAgent(
+        IChatClient ollama = new OllamaApiClient(new Uri(Endpoint), ModelName);
+        IChatClient chatClient = ollama
+            .AsBuilder()
+            .Use(inner => new TracingChatClient(
+                inner,
+                loggerFactory.CreateLogger<TracingChatClient>(),
+                ModelName))
+            .UseLogging(loggerFactory)
+            .Build();
+
+        var agent = chatClient.AsAIAgent(
             instructions:
                 """
                 You are a helpful MiniBank assistant.
@@ -46,16 +60,29 @@ public sealed class BankingAgent
             description: "Answers MiniBank account questions by calling banking tools.",
             tools:
             [
-                AIFunctionFactory.Create(accountTools.GetBalanceAsync, name: "get_balance"),
-                AIFunctionFactory.Create(accountTools.FindAccountsByOwnerAsync, name: "find_accounts_by_owner"),
-                AIFunctionFactory.Create(accountTools.GetTotalValueAsync, name: "get_total_value"),
-                AIFunctionFactory.Create(accountTools.GetHighestBalanceAccountAsync, name: "get_highest_balance_account"),
-                AIFunctionFactory.Create(customerTools.GetOwnerTotalBalanceAsync, name: "get_owner_total_balance"),
-                AIFunctionFactory.Create(customerTools.CountDepositsByOwnerAsync, name: "count_deposits_by_owner"),
-                AIFunctionFactory.Create(transactionTools.GetDepositsAsync, name: "get_deposits"),
-                AIFunctionFactory.Create(transactionTools.GetAccountHistoryAsync, name: "get_account_history")
-            ]);
+                Tool(accountTools.GetBalanceAsync, "get_balance", toolLogger),
+                Tool(accountTools.FindAccountsByOwnerAsync, "find_accounts_by_owner", toolLogger),
+                Tool(accountTools.GetTotalValueAsync, "get_total_value", toolLogger),
+                Tool(accountTools.GetHighestBalanceAccountAsync, "get_highest_balance_account", toolLogger),
+                Tool(customerTools.GetOwnerTotalBalanceAsync, "get_owner_total_balance", toolLogger),
+                Tool(customerTools.CountDepositsByOwnerAsync, "count_deposits_by_owner", toolLogger),
+                Tool(transactionTools.GetDepositsAsync, "get_deposits", toolLogger),
+                Tool(transactionTools.GetAccountHistoryAsync, "get_account_history", toolLogger)
+            ],
+            loggerFactory: loggerFactory);
+
+        Agent = new TracingAgent(
+            agent.AsBuilder()
+                .UseOpenTelemetry(
+                    MiniBankActivitySources.Agent.Name,
+                    otel => otel.EnableSensitiveData = true)
+                .Build(),
+            loggerFactory.CreateLogger<TracingAgent>(),
+            ModelName);
     }
 
     public AIAgent Agent { get; }
+
+    private static AIFunction Tool(Delegate method, string name, ILogger logger)
+        => new TracingAIFunction(AIFunctionFactory.Create(method, name: name), logger);
 }
