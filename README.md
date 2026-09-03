@@ -12,6 +12,7 @@ The bank itself lives in this repo: accounts, concurrency, persistence, and the 
 | `MiniBank.Repositories` | `IAccountRepository` and `PostgresAccountRepository` |
 | `MiniBank.Services` | `Bank` (deposit / withdraw / transfer) and `IAuditLogger` |
 | `MiniBank.AI` | Agents, tools, workflow, telemetry |
+| `MiniBank.Api` | Minimal API host + Serilog + OpenTelemetry |
 | `MiniBank.Console` | Interactive host + Serilog + OpenTelemetry |
 | `MiniBank.AI.Tests` | Query-agent tests, workflow routing tests, and owner-resolution unit tests |
 
@@ -44,11 +45,45 @@ Optional: an OTLP collector at `http://localhost:4317` (see `MiniBank.Console/ap
 
 ## Run
 
+### Console
+
 ```bash
 dotnet run --project MiniBank.Console
 ```
 
 The console seeds the in-memory bank, then prompts for questions. Type `quit` (or `exit` / `q` / `bye`) to leave. After each turn it prints the executor path (`IntentAgent → QueryExecutor`, and so on) and the assistant reply.
+
+### API
+
+```bash
+dotnet run --project MiniBank.Api
+```
+
+The API serves at `http://localhost:5000` by default. It exposes:
+
+- `POST /chat` — accepts a question and returns the workflow answer plus executor path
+- `GET /health` — returns `200 OK` without calling Ollama
+
+Example:
+
+```bash
+curl -X POST http://localhost:5000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What is the balance of account 10001?"}'
+```
+
+Response:
+
+```json
+{
+  "output": "The balance of account 10001 is £1,532.42.",
+  "executorIds": ["IntentAgent", "QueryExecutor"]
+}
+```
+
+The API uses the same in-memory bank seeding as the Console, so all existing questions in this README work.
+
+### Tests
 
 ```bash
 dotnet test MiniBank.AI.Tests/MiniBank.AI.Tests.csproj
