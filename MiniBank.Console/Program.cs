@@ -37,16 +37,36 @@ try
         new OperationTools(bank),
         loggerFactory: loggerFactory);
 
-    foreach (var question in new[]
+    PrintWelcome();
+
+    while (true)
     {
-        "What is the balance of account 20001?",
-        "Transfer 50 pounds from account 10001 to account 20001."
-    })
-    {
+        Console.Write("You: ");
+        var question = Console.ReadLine();
+        if (question is null)
+            break;
+
+        question = question.Trim();
+        if (question.Length == 0)
+            continue;
+        if (IsQuit(question))
+            break;
+
         logger.LogInformation("Sending question to MiniBank workflow: {Question}", question);
-        var result = await workflow.RunDetailedAsync(question);
-        Console.WriteLine($"[{string.Join(" → ", result.ExecutorIds)}]");
-        Console.WriteLine(result.Output);
+
+        try
+        {
+            var result = await workflow.RunDetailedAsync(question);
+            if (result.ExecutorIds.Count > 0)
+                Console.WriteLine($"[{string.Join(" → ", result.ExecutorIds)}]");
+            Console.WriteLine($"MiniBank: {result.Output}");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Workflow failed for question: {Question}", question);
+            Console.WriteLine($"MiniBank: Sorry, something went wrong. {ex.Message}");
+        }
+
         Console.WriteLine();
     }
 
@@ -56,6 +76,19 @@ finally
 {
     await Log.CloseAndFlushAsync();
 }
+
+static void PrintWelcome()
+{
+    Console.WriteLine("MiniBank assistant. Type a question, or quit to exit.");
+    Console.WriteLine("Accounts: 1234567890 Alice Example · 10001 / 10002 John Smith · 20001 Jane Doe");
+    Console.WriteLine();
+}
+
+static bool IsQuit(string question)
+    => question.Equals("quit", StringComparison.OrdinalIgnoreCase)
+        || question.Equals("exit", StringComparison.OrdinalIgnoreCase)
+        || question.Equals("q", StringComparison.OrdinalIgnoreCase)
+        || question.Equals("bye", StringComparison.OrdinalIgnoreCase);
 
 static async Task<Bank> CreateBankAsync()
 {

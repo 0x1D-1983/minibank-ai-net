@@ -17,7 +17,7 @@ public sealed class CustomerTools
     public async Task<decimal> GetOwnerTotalBalanceAsync(
         [Description("The customer's full name.")] string owner)
     {
-        var accounts = await _bank.GetAccountsByOwnerAsync(owner);
+        var accounts = await OwnerResolver.ResolveAsync(_bank, owner);
         var balances = await Task.WhenAll(accounts.Select(account => account.GetBalanceAsync()));
         return balances.Sum();
     }
@@ -26,7 +26,7 @@ public sealed class CustomerTools
     public async Task<int> CountDepositsByOwnerAsync(
         [Description("The customer's full name.")] string owner)
     {
-        var accounts = await _bank.GetAccountsByOwnerAsync(owner);
+        var accounts = await OwnerResolver.ResolveAsync(_bank, owner);
         return accounts.Sum(CountDeposits);
     }
 

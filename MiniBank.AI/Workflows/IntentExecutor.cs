@@ -1,38 +1,28 @@
 using System.Globalization;
 using System.Text.Json;
-using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
+using MiniBank.AI.Agents;
 
 namespace MiniBank.AI.Workflows;
 
-internal sealed class IntentExecutor(AIAgent intentAgent)
+internal sealed class IntentExecutor(IntentAgent intentAgent)
     : Executor<string, BankingIntent>(BankingWorkflow.IntentAgentId)
 {
-    public override async ValueTask<BankingIntent> HandleAsync(
+    public override ValueTask<BankingIntent> HandleAsync(
         string message,
         IWorkflowContext context,
         CancellationToken cancellationToken = default)
+        => new(intentAgent.ClassifyAsync(message, cancellationToken));
+
+    internal static BankingIntent Parse(ChatResponse response, string question)
     {
-        var response = await intentAgent.RunAsync(message, cancellationToken: cancellationToken);
-        return Parse(response, message);
-    }
+        var call = response.Messages
+            .SelectMany(message => message.Contents)
+            .OfType<FunctionCallContent>()
+            .LastOrDefault();
 
-    internal static BankingIntent Parse(AgentResponse response, string question)
-    {
-        var contents = response.Messages.SelectMany(item => item.Contents).ToList();
-
-        var call = contents.OfType<FunctionCallContent>().LastOrDefault();
-        if (call is not null)
-            return FromCall(call, question);
-
-        foreach (var result in contents.OfType<FunctionResultContent>())
-        {
-            if (result.Result is BankingIntent intent)
-                return intent with { Question = question };
-        }
-
-        return BankingIntent.Read(question);
+        return call is null ? BankingIntent.Read(question) : FromCall(call, question);
     }
 
     private static BankingIntent FromCall(FunctionCallContent call, string question)

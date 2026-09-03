@@ -27,7 +27,7 @@ public sealed class AccountTools
     public async Task<List<AccountBalance>> FindAccountsByOwnerAsync(
         [Description("The customer's full name.")] string owner)
     {
-        var accounts = await _bank.GetAccountsByOwnerAsync(owner);
+        var accounts = await OwnerResolver.ResolveAsync(_bank, owner);
         return await ToBalancesAsync(accounts);
     }
 

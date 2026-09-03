@@ -1,4 +1,3 @@
-using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -45,7 +44,7 @@ public sealed class BankingWorkflow
         loggerFactory ??= NullLoggerFactory.Instance;
         approver ??= new AutoApprover();
 
-        var intent = new IntentExecutor(new IntentAgent(chatClient, loggerFactory).Agent);
+        var intent = new IntentExecutor(new IntentAgent(chatClient, loggerFactory));
         var query = new QueryExecutor(
             new BankingAgent(accountTools, customerTools, transactionTools, chatClient, loggerFactory).Agent);
         var approval = new ApprovalExecutor(approver);
