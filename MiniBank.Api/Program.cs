@@ -68,7 +68,7 @@ app.MapPost("/chat", async (ChatRequest request, CancellationToken cancellationT
         var result = await workflow.RunDetailedAsync(request.Question, cancellationToken);
         return Results.Ok(new ChatResponse(result.Output, result.ExecutorIds));
     }
-    catch (Exception ex)
+    catch (Exception ex) when (ex is not OperationCanceledException)
     {
         logger.LogError(ex, "Workflow failed for question: {Question}", request.Question);
         return Results.Problem(
