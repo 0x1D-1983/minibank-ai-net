@@ -12,6 +12,7 @@ The bank itself lives in this repo: accounts, concurrency, persistence, and the 
 | `MiniBank.Repositories` | `IAccountRepository` and `PostgresAccountRepository` |
 | `MiniBank.Services` | `Bank` (deposit / withdraw / transfer) and `IAuditLogger` |
 | `MiniBank.AI` | Agents, tools, workflow, telemetry |
+| `MiniBank.Api` | Thin Minimal API host + Serilog + OpenTelemetry |
 | `MiniBank.Console` | Interactive host + Serilog + OpenTelemetry |
 | `MiniBank.AI.Tests` | Query-agent tests, workflow routing tests, and owner-resolution unit tests |
 
@@ -55,6 +56,29 @@ dotnet test MiniBank.AI.Tests/MiniBank.AI.Tests.csproj
 ```
 
 Ollama-backed tests fail immediately if Ollama is not reachable. They are not parallelized (`[Collection("Ollama")]`). `CustomerToolsTests` does not need Ollama.
+
+### API
+
+```bash
+dotnet run --project MiniBank.Api
+```
+
+The API seeds the same in-memory bank as the console and listens on ASP.NET Core's default `http://localhost:5000` unless overridden (for example, with `ASPNETCORE_URLS`).
+
+```bash
+curl -s http://localhost:5000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"question":"What is the balance of account 10001?"}'
+```
+
+Response:
+
+```json
+{
+  "output": "...",
+  "executorIds": ["IntentAgent", "QueryExecutor"]
+}
+```
 
 ## Seed data
 
