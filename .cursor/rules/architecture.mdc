@@ -1,0 +1,23 @@
+---
+description: MiniBank layering, write path, and thin hosts
+alwaysApply: true
+---
+
+# Architecture
+
+New code depends inward, not sideways into a host.
+
+| Project | Owns |
+|---|---|
+| `MiniBank.Domain` | Accounts, exceptions, locks. No IO or ASP.NET. |
+| `MiniBank.Repositories` | `IAccountRepository` implementations. |
+| `MiniBank.Services` | `Bank` (only write path) and `IAuditLogger`. |
+| `MiniBank.AI` | Agents, tools, workflow, telemetry. |
+| Hosts (Console, API, tests) | Composition and config. No domain rules. |
+
+- Writes go Intent → Approval → Transfer/Decline. The model must not get deposit/withdraw/transfer tools (`OperationTools` is for `TransferExecutor` only).
+- Do not move business rules into Minimal API endpoints.
+- Do not add an interface, mediator, or base class for a single implementation.
+- Prefer composing `BankingWorkflow` / `Bank` over duplicating their behaviour.
+- An in-memory repository shared across HTTP requests must be safe for concurrent map access (lock or `ConcurrentDictionary`). Account balances stay behind existing per-account locks.
+- Hosts that need tracing use `AddMiniBankTracing` with a distinct service name. Serilog from configuration. Structured log templates (`{Question}`), not interpolated messages.

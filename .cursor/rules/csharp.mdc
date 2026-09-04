@@ -1,0 +1,23 @@
+---
+description: C# conventions, cancellation, and SOLID for this repo
+globs: "**/*.cs"
+alwaysApply: false
+---
+
+# C#
+
+- `net10.0`, nullable enabled, implicit usings disabled. File-scoped namespaces. `sealed` when inheritance is not the design. Primary constructors when they stay readable.
+- `Async` suffix on async methods. Pass `CancellationToken` through I/O, workflow, and HTTP. Do not swallow cancellation: `catch (Exception)` must exclude `OperationCanceledException` (covers `TaskCanceledException`). No `async void`.
+- Constructor-inject dependencies. `new` of `Bank` / repositories only at a host composition root. No service locator.
+- No magic numbers or strings. Named constants or config for ports, timeouts, routes, model names, reused messages. Seed account numbers in a test whose name already explains them are fine.
+- Guard public entry points (`ArgumentNullException.ThrowIfNull`, empty question → 400). Do not leak stack traces to API clients.
+- DTOs across a host boundary: records / `IReadOnlyList<T>`. Do not expose mutable domain entities over HTTP unless the spec says to.
+- Do not disable nullable. Do not catch `Exception` without logging (except cancellation, which must propagate).
+
+## SOLID, in practice
+
+- **S** — An endpoint must not approve writes, mutate accounts, *and* talk to Ollama.
+- **O** — Add an executor/tool/approver; do not grow a switch of operation kinds unless that file is already the switch.
+- **L** — `SavingsAccount` / `CurrentAccount` must not surprise vs `Account` (locks and balance rules).
+- **I** — Do not grow `IAccountRepository` or tool types with methods only one caller needs.
+- **D** — Domain and `Bank` depend on `IAccountRepository` / `IWriteApprover`, never on a host or Ollama. Concrete infrastructure only at the composition root.
