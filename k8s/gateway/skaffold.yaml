@@ -1,0 +1,11 @@
+apiVersion: skaffold/v4beta13
+kind: Config
+metadata:
+  name: ai-gateway
+manifests:
+  kustomize:
+    paths:
+      - ./
+deploy:
+  kubectl:
+    defaultNamespace: ai-runtime

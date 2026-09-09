@@ -37,9 +37,13 @@ The console and tests use an in-memory repository. `PostgresAccountRepository` (
 - [Ollama](https://ollama.com) at `http://localhost:11434`
 - Model `qwen2.5:1.5b-instruct`
 
+Standalone app:
+
 ```bash
 ollama pull qwen2.5:1.5b-instruct
 ```
+
+Or run the same model in Kubernetes instead (CPU worker, no standalone Ollama app): see [`k8s/README.md`](k8s/README.md). Port-forward `svc/ollama` to `localhost:11434` so host `appsettings.json` does not change.
 
 Optional: an OTLP collector at `http://localhost:4317` (see `MiniBank.Console/appsettings.json`). Tracing can be turned off with `"Tracing": { "Enabled": false }`.
 

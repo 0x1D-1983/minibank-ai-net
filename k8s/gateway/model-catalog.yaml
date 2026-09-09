@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: model-catalog
+  namespace: ai-runtime
+  labels:
+    app.kubernetes.io/component: inference-scheduler
+    app.kubernetes.io/part-of: minibank-ai-runtime
+data:
+  catalog.yaml: |
+    # Routing table for the internal AI API.
+    # Active backends are live Envoy clusters. Planned backends return 501 until deployed.
+    models:
+      - id: qwen2.5:1.5b-instruct
+        runtime: ollama
+        backend: ollama.ai-runtime.svc.cluster.local:11434
+        status: active
+      - id: llama
+        runtime: vllm
+        backend: llama-vllm.ai-runtime.svc.cluster.local:8000
+        status: planned
+      - id: mistral
+        runtime: tgi
+        backend: mistral-tgi.ai-runtime.svc.cluster.local:80
+        status: planned

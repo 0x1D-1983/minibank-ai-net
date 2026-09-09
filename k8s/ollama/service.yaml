@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: ai-runtime
+  labels:
+    app: ollama
+    app.kubernetes.io/component: inference-scheduler
+    app.kubernetes.io/part-of: minibank-ai-runtime
+spec:
+  type: ClusterIP
+  selector:
+    app: ollama
+  ports:
+    - name: http
+      port: 11434
+      targetPort: http
+      protocol: TCP
