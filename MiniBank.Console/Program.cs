@@ -8,9 +8,7 @@ using MiniBank.AI.Telemetry;
 using MiniBank.AI.Tools;
 using MiniBank.AI.Workflows;
 using Serilog;
-using System.Collections.Generic;
 using System.Threading.Tasks;
-using System.Linq;
 using System;
 using System.IO;
 
@@ -112,34 +110,6 @@ static async Task<Bank> CreateBankAsync()
     await bank.DepositAsync(20001, 5_000.00m);
 
     return bank;
-}
-
-file sealed class InMemoryAccountRepository : IAccountRepository
-{
-    private readonly Dictionary<long, Account> _accounts = new();
-
-    public Task AddAccountAsync(Account account)
-    {
-        _accounts[account.AccountNumber] = account;
-        return Task.CompletedTask;
-    }
-
-    public Task<Account?> FindByIdAsync(long accountNumber)
-        => Task.FromResult(_accounts.TryGetValue(accountNumber, out var account) ? account : null);
-
-    public Task<List<Account>> AllAsync()
-        => Task.FromResult(_accounts.Values.ToList());
-
-    public Task<List<Account>> FindByOwnerAsync(string owner)
-        => Task.FromResult(_accounts.Values
-            .Where(account => account.Owner.Equals(owner, StringComparison.OrdinalIgnoreCase))
-            .ToList());
-
-    public Task UpdateAccountAsync(Account account)
-    {
-        _accounts[account.AccountNumber] = account;
-        return Task.CompletedTask;
-    }
 }
 
 file sealed class NoOpAuditLogger : IAuditLogger
