@@ -14,8 +14,11 @@ namespace MiniBank.AI.Tests.Support;
 
 internal sealed class AgentTestHarness
 {
-    private const string Endpoint = "http://localhost:11434";
-    private const string ModelName = "qwen2.5:1.5b-instruct";
+    private static readonly OllamaOptions Ollama = new()
+    {
+        Endpoint = "http://localhost:11434",
+        Model = "qwen2.5:1.5b-instruct"
+    };
 
     public RecordingAccountRepository Repository { get; }
     public RecordingChatClient Chat { get; }
@@ -70,13 +73,13 @@ internal sealed class AgentTestHarness
         await SeedAsync(bank);
         repository.ClearRecordings();
 
-        IChatClient ollama = new OllamaApiClient(new Uri(Endpoint), ModelName);
+        IChatClient ollama = new OllamaApiClient(new Uri(Ollama.Endpoint), Ollama.Model);
         var chat = new RecordingChatClient(ollama);
 
         var accountTools = new AccountTools(bank);
         var customerTools = new CustomerTools(bank);
         var transactionTools = new TransactionTools(bank);
-        var agent = new BankingAgent(accountTools, customerTools, transactionTools, chatClient: chat).Agent;
+        var agent = new BankingAgent(accountTools, customerTools, transactionTools, Ollama, chatClient: chat).Agent;
 
         BankingWorkflow? workflow = null;
         RecordingWriteApprover? approver = null;
@@ -88,6 +91,7 @@ internal sealed class AgentTestHarness
                 customerTools,
                 transactionTools,
                 new OperationTools(bank),
+                Ollama,
                 chatClient: chat,
                 approver: approver);
         }
@@ -100,19 +104,19 @@ internal sealed class AgentTestHarness
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
         try
         {
-            using var response = await http.GetAsync(new Uri($"{Endpoint}/api/tags"));
+            using var response = await http.GetAsync(new Uri($"{Ollama.Endpoint}/api/tags"));
             if (!response.IsSuccessStatusCode)
             {
                 Assert.Fail(
-                    $"Ollama responded {response.StatusCode} at {Endpoint}. " +
-                    $"Start Ollama and pull {ModelName}.");
+                    $"Ollama responded {response.StatusCode} at {Ollama.Endpoint}. " +
+                    $"Start Ollama and pull {Ollama.Model}.");
             }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
             Assert.Fail(
-                $"Ollama is not reachable at {Endpoint}. " +
-                $"Start Ollama and pull {ModelName}. {ex.Message}");
+                $"Ollama is not reachable at {Ollama.Endpoint}. " +
+                $"Start Ollama and pull {Ollama.Model}. {ex.Message}");
         }
     }
 

@@ -4,6 +4,7 @@ using Banking.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using MiniBank.AI.Agents;
 using MiniBank.AI.Telemetry;
 using MiniBank.AI.Tools;
 using MiniBank.AI.Workflows;
@@ -38,6 +39,7 @@ try
         new CustomerTools(bank),
         new TransactionTools(bank),
         new OperationTools(bank),
+        OllamaOptions.FromConfiguration(builder.Configuration),
         loggerFactory: loggerFactory);
 
     PrintWelcome();

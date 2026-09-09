@@ -18,16 +18,18 @@ public sealed class BankingAgent
         AccountTools accountTools,
         CustomerTools customerTools,
         TransactionTools transactionTools,
+        OllamaOptions ollama,
         IChatClient? chatClient = null,
         ILoggerFactory? loggerFactory = null)
     {
         ArgumentNullException.ThrowIfNull(accountTools);
         ArgumentNullException.ThrowIfNull(customerTools);
         ArgumentNullException.ThrowIfNull(transactionTools);
+        ArgumentNullException.ThrowIfNull(ollama);
 
         loggerFactory ??= NullLoggerFactory.Instance;
         var toolLogger = loggerFactory.CreateLogger<TracingAIFunction>();
-        chatClient = MiniBankChat.Create(chatClient, loggerFactory);
+        chatClient = MiniBankChat.Create(chatClient, loggerFactory, ollama);
 
         var tools = QueryTools.Create(accountTools, customerTools, transactionTools, toolLogger);
 
@@ -65,7 +67,7 @@ public sealed class BankingAgent
             },
             loggerFactory: loggerFactory);
 
-        Agent = MiniBankChat.Instrument(agent, loggerFactory);
+        Agent = MiniBankChat.Instrument(agent, loggerFactory, ollama);
     }
 
     public AIAgent Agent { get; }

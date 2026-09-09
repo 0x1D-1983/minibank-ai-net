@@ -37,6 +37,7 @@ public sealed class BankingWorkflow
         CustomerTools customerTools,
         TransactionTools transactionTools,
         OperationTools operationTools,
+        OllamaOptions ollama,
         IChatClient? chatClient = null,
         ILoggerFactory? loggerFactory = null,
         IWriteApprover? approver = null)
@@ -45,13 +46,14 @@ public sealed class BankingWorkflow
         ArgumentNullException.ThrowIfNull(customerTools);
         ArgumentNullException.ThrowIfNull(transactionTools);
         ArgumentNullException.ThrowIfNull(operationTools);
+        ArgumentNullException.ThrowIfNull(ollama);
 
         loggerFactory ??= NullLoggerFactory.Instance;
         approver ??= new AutoApprover();
 
-        var intent = new IntentExecutor(new IntentAgent(chatClient, loggerFactory));
+        var intent = new IntentExecutor(new IntentAgent(ollama, chatClient, loggerFactory));
         var query = new QueryExecutor(
-            new BankingAgent(accountTools, customerTools, transactionTools, chatClient, loggerFactory).Agent);
+            new BankingAgent(accountTools, customerTools, transactionTools, ollama, chatClient, loggerFactory).Agent);
         var approval = new ApprovalExecutor(approver);
         var transfer = new TransferExecutor(operationTools);
         var decline = new DeclineExecutor();

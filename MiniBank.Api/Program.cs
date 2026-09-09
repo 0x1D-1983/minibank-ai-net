@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MiniBank.AI.Agents;
 using MiniBank.AI.Telemetry;
 using MiniBank.AI.Tools;
 using MiniBank.AI.Workflows;
@@ -42,6 +43,7 @@ try
         new CustomerTools(bank),
         new TransactionTools(bank),
         new OperationTools(bank),
+        OllamaOptions.FromConfiguration(app.Configuration),
         loggerFactory: loggerFactory);
 }
 catch (Exception ex)

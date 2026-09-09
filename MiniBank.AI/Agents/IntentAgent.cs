@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
@@ -19,13 +20,16 @@ public sealed class IntentAgent
     private readonly ILogger _logger;
 
     public IntentAgent(
+        OllamaOptions ollama,
         IChatClient? chatClient = null,
         ILoggerFactory? loggerFactory = null)
     {
+        ArgumentNullException.ThrowIfNull(ollama);
+
         loggerFactory ??= NullLoggerFactory.Instance;
         var toolLogger = loggerFactory.CreateLogger<TracingAIFunction>();
         _logger = loggerFactory.CreateLogger<IntentAgent>();
-        _chatClient = MiniBankChat.Create(chatClient, loggerFactory);
+        _chatClient = MiniBankChat.Create(chatClient, loggerFactory, ollama);
 
         var routing = new IntentRouting();
         _options = new ChatOptions
