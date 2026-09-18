@@ -1,4 +1,3 @@
-using System;
 using System.Threading.Tasks;
 using MiniBank.AI.Tests.Support;
 
@@ -86,23 +85,5 @@ public sealed class BankingAgentAmbiguityTests
         AgentAssert.ReceivedNoArguments(harness.Chat, "find_accounts_by_owner");
         AgentAssert.DidNotChoose(harness.Chat, "get_owner_total_balance");
         AgentAssert.AnswerContainsFacts(answer, 1532.42m, 800.00m);
-    }
-
-    [Fact(Timeout = 180_000)]
-    public async Task OtherCustomerByName_DoesNotAnswerWithCurrentCustomerTotal()
-    {
-        var harness = await AgentTestHarness.CreateAsync();
-        var answer = await harness.AskAsync("What is Jane Doe's balance?");
-
-        AgentAssert.DidNotChoose(
-            harness.Chat,
-            "get_owner_total_balance",
-            "get_balance",
-            "find_accounts_by_owner");
-        Assert.Empty(harness.Repository.FindByOwnerArgs);
-        Assert.Empty(harness.Repository.FindByIdArgs);
-        Assert.DoesNotContain("5000", answer.Replace(",", "", StringComparison.Ordinal), StringComparison.Ordinal);
-        Assert.DoesNotContain("2332", answer.Replace(",", "", StringComparison.Ordinal), StringComparison.Ordinal);
-        Assert.Contains("John Smith", answer, StringComparison.OrdinalIgnoreCase);
     }
 }

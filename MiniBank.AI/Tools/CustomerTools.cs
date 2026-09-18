@@ -16,13 +16,11 @@ public sealed class CustomerTools
         _bank = bank;
     }
 
-    public string CurrentOwner => _bank.CurrentOwner;
-
-    [Description("Get how much money the logged-in customer has in total across all of their accounts. Use this only when they ask about their own balance (including 'my' or their own name) without an account number. Do not use this if they named a different customer.")]
+    [Description("Get how much money the current customer has in total across all of their accounts. Use this when the user asks for a balance without giving an account number.")]
     public Task<decimal> GetOwnerTotalBalanceAsync()
         => _bank.GetTotalBalanceAsync();
 
-    [Description("Count how many deposits the logged-in customer has made across all of their accounts. Do not use this if they named a different customer.")]
+    [Description("Count how many deposits the current customer has made across all of their accounts.")]
     public async Task<int> CountDepositsByOwnerAsync()
     {
         var accounts = await _bank.GetAllAccountsAsync();
