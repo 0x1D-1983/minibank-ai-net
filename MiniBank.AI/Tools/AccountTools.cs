@@ -17,7 +17,7 @@ public sealed class AccountTools
         _bank = bank;
     }
 
-    [Description("Get the current balance of one account. Call only when the user supplied that account number. Do not invent an account number. If the user named a customer instead, use get_owner_total_balance.")]
+    [Description("Get the current balance of one account. Call only when the user supplied that account number. Do not invent an account number. If they asked about their own balance by name, use get_owner_total_balance. If they named a different customer, do not call this tool.")]
     public async Task<decimal> GetBalanceAsync(
         [Description("The account number supplied by the user.")] long accountNumber)
     {
@@ -25,7 +25,7 @@ public sealed class AccountTools
         return await account.GetBalanceAsync();
     }
 
-    [Description("List all accounts owned by the current customer, including each account number and balance.")]
+    [Description("List all accounts owned by the logged-in customer, including each account number and balance. Do not use this if they named a different customer.")]
     public async Task<List<AccountBalance>> FindAccountsByOwnerAsync()
     {
         var accounts = await _bank.GetAllAccountsAsync();
