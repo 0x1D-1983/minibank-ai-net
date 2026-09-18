@@ -14,6 +14,8 @@ namespace MiniBank.AI.Tests.Support;
 
 internal sealed class AgentTestHarness
 {
+    private const string DefaultCustomer = "John Smith";
+
     private static readonly OllamaOptions Ollama = new()
     {
         Endpoint = "http://localhost:11434",
@@ -23,6 +25,7 @@ internal sealed class AgentTestHarness
     public RecordingAccountRepository Repository { get; }
     public RecordingChatClient Chat { get; }
     public Bank Bank { get; }
+    public CustomerBank CustomerBank { get; }
     public AIAgent Agent { get; }
     public BankingWorkflow? Workflow { get; }
     public RecordingWriteApprover? Approver { get; }
@@ -31,6 +34,7 @@ internal sealed class AgentTestHarness
         RecordingAccountRepository repository,
         RecordingChatClient chat,
         Bank bank,
+        CustomerBank customerBank,
         AIAgent agent,
         BankingWorkflow? workflow,
         RecordingWriteApprover? approver)
@@ -38,16 +42,19 @@ internal sealed class AgentTestHarness
         Repository = repository;
         Chat = chat;
         Bank = bank;
+        CustomerBank = customerBank;
         Agent = agent;
         Workflow = workflow;
         Approver = approver;
     }
 
-    public static Task<AgentTestHarness> CreateAsync()
-        => CreateCoreAsync(includeWorkflow: false);
+    public static Task<AgentTestHarness> CreateAsync(string customer = DefaultCustomer)
+        => CreateCoreAsync(includeWorkflow: false, customer: customer);
 
-    public static Task<AgentTestHarness> CreateWorkflowAsync(bool approveWrites = true)
-        => CreateCoreAsync(includeWorkflow: true, approveWrites);
+    public static Task<AgentTestHarness> CreateWorkflowAsync(
+        bool approveWrites = true,
+        string customer = DefaultCustomer)
+        => CreateCoreAsync(includeWorkflow: true, approveWrites, customer);
 
     public async Task<string> AskAsync(string question)
     {
@@ -64,7 +71,10 @@ internal sealed class AgentTestHarness
         return Workflow.RunDetailedAsync(question);
     }
 
-    private static async Task<AgentTestHarness> CreateCoreAsync(bool includeWorkflow, bool approveWrites = true)
+    private static async Task<AgentTestHarness> CreateCoreAsync(
+        bool includeWorkflow,
+        bool approveWrites = true,
+        string customer = DefaultCustomer)
     {
         await EnsureOllamaAsync();
 
@@ -72,13 +82,14 @@ internal sealed class AgentTestHarness
         var bank = new Bank(repository, new NoOpAuditLogger());
         await SeedAsync(bank);
         repository.ClearRecordings();
+        var customerBank = bank.ForCustomer(customer);
 
         IChatClient ollama = new OllamaApiClient(new Uri(Ollama.Endpoint), Ollama.Model);
         var chat = new RecordingChatClient(ollama);
 
-        var accountTools = new AccountTools(bank);
-        var customerTools = new CustomerTools(bank);
-        var transactionTools = new TransactionTools(bank);
+        var accountTools = new AccountTools(customerBank);
+        var customerTools = new CustomerTools(customerBank);
+        var transactionTools = new TransactionTools(customerBank);
         var agent = new BankingAgent(accountTools, customerTools, transactionTools, Ollama, chatClient: chat).Agent;
 
         BankingWorkflow? workflow = null;
@@ -90,13 +101,13 @@ internal sealed class AgentTestHarness
                 accountTools,
                 customerTools,
                 transactionTools,
-                new OperationTools(bank),
+                new OperationTools(customerBank),
                 Ollama,
                 chatClient: chat,
                 approver: approver);
         }
 
-        return new AgentTestHarness(repository, chat, bank, agent, workflow, approver);
+        return new AgentTestHarness(repository, chat, bank, customerBank, agent, workflow, approver);
     }
 
     private static async Task EnsureOllamaAsync()

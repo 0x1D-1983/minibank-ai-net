@@ -4,6 +4,7 @@ using Banking.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using MiniBank.AI.Auth;
 using MiniBank.AI.Agents;
 using MiniBank.AI.Telemetry;
 using MiniBank.AI.Tools;
@@ -33,16 +34,28 @@ try
     var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
     var logger = loggerFactory.CreateLogger("MiniBank.Console");
 
+    var identity = new InMemoryCustomerIdentityService();
     var bank = await CreateBankAsync();
+    var principal = await PromptForLoginAsync(identity);
+    if (principal is null)
+    {
+        logger.LogWarning("MiniBank console login failed.");
+        Console.WriteLine("MiniBank: Login failed.");
+        return;
+    }
+
+    logger.LogInformation("Authenticated console customer: {Customer}", principal.Owner);
+
+    var customerBank = bank.ForCustomer(principal.Owner);
     var workflow = BankingWorkflow.Create(
-        new AccountTools(bank),
-        new CustomerTools(bank),
-        new TransactionTools(bank),
-        new OperationTools(bank),
+        new AccountTools(customerBank),
+        new CustomerTools(customerBank),
+        new TransactionTools(customerBank),
+        new OperationTools(customerBank),
         OllamaOptions.FromConfiguration(builder.Configuration),
         loggerFactory: loggerFactory);
 
-    PrintWelcome();
+    PrintWelcome(principal.Owner);
 
     while (true)
     {
@@ -57,7 +70,10 @@ try
         if (IsQuit(question))
             break;
 
-        logger.LogInformation("Sending question to MiniBank workflow: {Question}", question);
+        logger.LogInformation(
+            "Sending question to MiniBank workflow for {Customer}: {Question}",
+            principal.Owner,
+            question);
 
         try
         {
@@ -82,11 +98,26 @@ finally
     await Log.CloseAndFlushAsync();
 }
 
-static void PrintWelcome()
+static void PrintWelcome(string customer)
 {
     Console.WriteLine("MiniBank assistant. Type a question, or quit to exit.");
-    Console.WriteLine("Accounts: 1234567890 Alice Example · 10001 / 10002 John Smith · 20001 Jane Doe");
+    Console.WriteLine($"Signed in as {customer}. You can only see and debit your own accounts.");
     Console.WriteLine();
+}
+
+static async Task<CustomerPrincipal?> PromptForLoginAsync(ICustomerIdentityService identity)
+{
+    Console.WriteLine("Sign in with a demo MiniBank user.");
+    Console.Write("Username: ");
+    var username = Console.ReadLine();
+    Console.Write("Password: ");
+    var password = Console.ReadLine();
+
+    if (username is null || password is null)
+        return null;
+
+    var result = await identity.SignInAsync(username, password);
+    return result?.Principal;
 }
 
 static bool IsQuit(string question)

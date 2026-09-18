@@ -50,8 +50,8 @@ public sealed class BankingAgentTests
         var answer = await harness.AskAsync("What's the total value of all accounts?");
 
         AgentAssert.ChoseTool(harness.Chat, "get_total_value");
-        Assert.True(harness.Repository.AllCallCount > 0);
-        AgentAssert.AnswerContainsFacts(answer, 9782.42m);
+        AgentAssert.LookedUpOwner(harness.Repository, "John Smith");
+        AgentAssert.AnswerContainsFacts(answer, 2332.42m);
     }
 
     [Fact(Timeout = 180_000)]
@@ -61,8 +61,8 @@ public sealed class BankingAgentTests
         var answer = await harness.AskAsync("Which account has the highest balance?");
 
         AgentAssert.ChoseTool(harness.Chat, "get_highest_balance_account");
-        Assert.True(harness.Repository.AllCallCount > 0);
-        AgentAssert.AnswerContainsFacts(answer, "Jane Doe", 5000.00m);
+        AgentAssert.LookedUpOwner(harness.Repository, "John Smith");
+        AgentAssert.AnswerContainsFacts(answer, "John Smith", 10001L, 1532.42m);
     }
 
     [Fact(Timeout = 180_000)]

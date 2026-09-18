@@ -10,9 +10,9 @@ namespace MiniBank.AI.Tools;
 
 public sealed class AccountTools
 {
-    private readonly Bank _bank;
+    private readonly CustomerBank _bank;
 
-    public AccountTools(Bank bank)
+    public AccountTools(CustomerBank bank)
     {
         _bank = bank;
     }
@@ -33,11 +33,11 @@ public sealed class AccountTools
         return await ToBalancesAsync(accounts);
     }
 
-    [Description("Get the total value of every account in the bank (sum of all balances).")]
+    [Description("Get the total value of every account the authenticated customer may access.")]
     public Task<decimal> GetTotalValueAsync()
         => _bank.GetTotalBalanceAsync();
 
-    [Description("Find the account that currently has the highest balance.")]
+    [Description("Find the authenticated customer's account that currently has the highest balance.")]
     public async Task<AccountBalance?> GetHighestBalanceAccountAsync()
     {
         var accounts = await _bank.GetAllAccountsAsync();

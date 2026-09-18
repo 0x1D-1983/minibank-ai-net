@@ -17,7 +17,7 @@ public sealed class CustomerToolsTests
         await bank.DepositAsync(1234567890, 2_450.00m);
         repository.ClearRecordings();
 
-        var total = await new CustomerTools(bank).GetOwnerTotalBalanceAsync("Alice");
+        var total = await new CustomerTools(bank.ForCustomer("Alice Example")).GetOwnerTotalBalanceAsync("Alice");
 
         Assert.Equal(2_450.00m, total);
     }
@@ -31,7 +31,7 @@ public sealed class CustomerToolsTests
         await bank.DepositAsync(1234567890, 2_450.00m);
         repository.ClearRecordings();
 
-        var total = await new CustomerTools(bank).GetOwnerTotalBalanceAsync("Alice Example");
+        var total = await new CustomerTools(bank.ForCustomer("Alice Example")).GetOwnerTotalBalanceAsync("Alice Example");
 
         Assert.Equal(2_450.00m, total);
         Assert.Equal(0, repository.AllCallCount);

@@ -2,7 +2,7 @@
 
 A Microsoft Agent Framework assistant for a small banking domain. Lookups go through read-only tools. Deposits, withdrawals, and transfers cannot be invoked by the model; they run only after a workflow approval step.
 
-The bank itself lives in this repo: accounts, concurrency, persistence, and the `Bank` service. The console seeds an in-memory bank and chats through `BankingWorkflow`.
+The bank itself lives in this repo: accounts, concurrency, persistence, and the `Bank` service. The hosts seed an in-memory bank, authenticate a demo customer, and chat through a customer-scoped `BankingWorkflow`.
 
 ## Layout
 
@@ -49,13 +49,25 @@ Optional: an OTLP collector at `http://localhost:4317` (see `MiniBank.Console/ap
 
 ## Run
 
+### Demo login
+
+Both hosts use the same in-memory mock identity service. Demo credentials are:
+
+| Username | Password | Customer | Accounts |
+|---|---|---|---|
+| `alice` | `alice` | Alice Example | 1234567890 |
+| `john` | `john` | John Smith | 10001 / 10002 |
+| `jane` | `jane` | Jane Doe | 20001 |
+
+One login session is one customer. A customer can read and debit only their own accounts; transfers may credit another customer's account.
+
 ### Console
 
 ```bash
 dotnet run --project MiniBank.Console
 ```
 
-The console seeds the in-memory bank, then prompts for questions. Type `quit` (or `exit` / `q` / `bye`) to leave. After each turn it prints the executor path (`IntentAgent → QueryExecutor`, and so on) and the assistant reply.
+The console seeds the in-memory bank, prompts for the demo username/password, then prompts for questions. Type `quit` (or `exit` / `q` / `bye`) to leave. After each turn it prints the executor path (`IntentAgent → QueryExecutor`, and so on) and the assistant reply.
 
 ### API
 
@@ -65,14 +77,20 @@ dotnet run --project MiniBank.Api
 
 The API serves at `http://localhost:5000` by default. It exposes:
 
+- `POST /login` — accepts demo credentials and returns a bearer token
 - `POST /chat` — accepts a question and returns the workflow answer plus executor path
 - `GET /health` — returns `200 OK` without calling Ollama
 
-Example:
+Example as John Smith (accounts 10001 and 10002):
 
 ```bash
+TOKEN=$(curl -s -X POST http://localhost:5000/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "john", "password": "john"}' | jq -r .token)
+
 curl -X POST http://localhost:5000/chat \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"question": "What is the balance of account 10001?"}'
 ```
 
@@ -85,7 +103,7 @@ Response:
 }
 ```
 
-The API uses the same in-memory bank seeding as the Console, so all existing questions in this README work.
+Without a valid bearer token, `POST /chat` returns `401 Unauthorized` and does not run a workflow turn. `GET /health` remains anonymous.
 
 ### Tests
 
@@ -93,7 +111,7 @@ The API uses the same in-memory bank seeding as the Console, so all existing que
 dotnet test MiniBank.AI.Tests/MiniBank.AI.Tests.csproj
 ```
 
-Ollama-backed tests fail immediately if Ollama is not reachable. They are not parallelized (`[Collection("Ollama")]`). `CustomerToolsTests` does not need Ollama.
+Ollama-backed tests fail immediately if Ollama is not reachable. They are not parallelized (`[Collection("Ollama")]`). `CustomerToolsTests`, authorization tests, identity tests, and API authentication tests do not need Ollama.
 
 ## Seed data
 
@@ -104,9 +122,9 @@ Ollama-backed tests fail immediately if Ollama is not reachable. They are not pa
 | 10002 | John Smith | Savings | £800.00 |
 | 20001 | Jane Doe | Current | £5,000.00 |
 
-Bank total: **£9,782.42**. John Smith’s combined balance: **£2,332.42**.
+The seeded internal total is **£9,782.42**, but customer sessions do not expose whole-bank totals. John Smith’s combined visible balance is **£2,332.42**.
 
-Owner lookups accept a full name or a unique first name (`Alice` → Alice Example). Ambiguous tokens match nothing.
+Owner lookups accept a full name or a unique first name within the authenticated customer's visible accounts (`Alice` → Alice Example when signed in as Alice). Other customers match nothing.
 
 ## Workflow
 
@@ -133,6 +151,7 @@ The console and workflow tests enter through `BankingWorkflow`, not a single age
               Transfer Executor    Decline Executor
                      │
                      ▼
+              CustomerBank →
               Bank.Deposit /
               Bank.Withdraw /
               Bank.Transfer
@@ -146,7 +165,8 @@ flowchart TD
     query --> answer[Answer]
     approval -->|approved| transfer[Transfer Executor]
     approval -->|declined| decline[Decline Executor]
-    transfer --> bank[Bank]
+    transfer --> customerBank[CustomerBank]
+    customerBank --> bank[Bank]
     transfer --> answer
     decline --> answer
 ```
@@ -199,8 +219,8 @@ Used only by `BankingAgent` / Query Executor. These never change balances. Owner
 | `get_balance` | User supplied a specific account number |
 | `get_owner_total_balance` | Named customer, no account number |
 | `find_accounts_by_owner` | List a customer’s accounts |
-| `get_total_value` | Sum of every account in the bank |
-| `get_highest_balance_account` | Account with the largest balance |
+| `get_total_value` | Sum of every visible account for the authenticated customer |
+| `get_highest_balance_account` | Visible account with the largest balance for the authenticated customer |
 | `count_deposits_by_owner` | How many deposits a customer has made |
 | `get_deposits` | Deposits on one numbered account |
 | `get_account_history` | Full history of one numbered account |
@@ -209,7 +229,7 @@ Implemented in `AccountTools`, `CustomerTools`, and `TransactionTools`; register
 
 ### WRITE (workflow only)
 
-`OperationTools` wraps `Bank`. The LLM never receives these. `TransferExecutor` calls them after approval.
+`OperationTools` wraps the customer-scoped bank. The LLM never receives these. `TransferExecutor` calls them after approval.
 
 | Method | Bank call |
 |---|---|
