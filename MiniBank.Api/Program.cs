@@ -3,8 +3,10 @@ using Banking.Repositories;
 using Banking.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MiniBank.AI.Auth;
 using MiniBank.AI.Agents;
 using MiniBank.AI.Telemetry;
 using MiniBank.AI.Tools;
@@ -13,6 +15,7 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -34,17 +37,10 @@ var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var logger = loggerFactory.CreateLogger("MiniBank.Api");
 
 Bank bank;
-BankingWorkflow workflow;
+ICustomerIdentityService identity = new InMemoryCustomerIdentityService();
 try
 {
     bank = await CreateBankAsync();
-    workflow = BankingWorkflow.Create(
-        new AccountTools(bank),
-        new CustomerTools(bank),
-        new TransactionTools(bank),
-        new OperationTools(bank),
-        OllamaOptions.FromConfiguration(app.Configuration),
-        loggerFactory: loggerFactory);
 }
 catch (Exception ex)
 {
@@ -55,19 +51,38 @@ catch (Exception ex)
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 
-app.MapPost("/chat", async (ChatRequest request, CancellationToken cancellationToken) =>
+app.MapPost("/login", async (ApiLoginRequest request, CancellationToken cancellationToken) =>
 {
+    var result = await identity.SignInAsync(request.Username, request.Password, cancellationToken);
+    if (result is null)
+        return Results.Unauthorized();
+
+    logger.LogInformation("Authenticated API customer: {Customer}", result.Principal.Owner);
+    return Results.Ok(new ApiLoginResponse(result.Token, result.Principal.Owner));
+});
+
+app.MapPost("/chat", async (HttpRequest httpRequest, ApiChatRequest request, CancellationToken cancellationToken) =>
+{
+    var principal = await AuthenticateAsync(identity, httpRequest, cancellationToken);
+    if (principal is null)
+        return Results.Unauthorized();
+
     if (string.IsNullOrWhiteSpace(request.Question))
     {
         return Results.BadRequest(new { error = "Question cannot be empty" });
     }
 
-    logger.LogInformation("Sending question to MiniBank workflow: {Question}", request.Question);
+    var workflow = CreateWorkflow(bank.ForCustomer(principal.Owner), loggerFactory, app.Configuration);
+
+    logger.LogInformation(
+        "Sending question to MiniBank workflow for {Customer}: {Question}",
+        principal.Owner,
+        request.Question);
 
     try
     {
         var result = await workflow.RunDetailedAsync(request.Question, cancellationToken);
-        return Results.Ok(new ChatResponse(result.Output, result.ExecutorIds));
+        return Results.Ok(new ApiChatResponse(result.Output, result.ExecutorIds));
     }
     catch (Exception ex) when (ex is not OperationCanceledException)
     {
@@ -86,6 +101,42 @@ try
 finally
 {
     await Log.CloseAndFlushAsync();
+}
+
+static BankingWorkflow CreateWorkflow(
+    CustomerBank customerBank,
+    ILoggerFactory loggerFactory,
+    IConfiguration configuration)
+    => BankingWorkflow.Create(
+        new AccountTools(customerBank),
+        new CustomerTools(customerBank),
+        new TransactionTools(customerBank),
+        new OperationTools(customerBank),
+        OllamaOptions.FromConfiguration(configuration),
+        loggerFactory: loggerFactory);
+
+static async Task<CustomerPrincipal?> AuthenticateAsync(
+    ICustomerIdentityService identity,
+    HttpRequest request,
+    CancellationToken cancellationToken)
+{
+    var token = ReadBearerToken(request);
+    return token is null ? null : await identity.ValidateTokenAsync(token, cancellationToken);
+}
+
+static string? ReadBearerToken(HttpRequest request)
+{
+    if (!request.Headers.TryGetValue("Authorization", out var authorization))
+        return null;
+
+    var header = authorization.FirstOrDefault();
+    if (header is null)
+        return null;
+
+    const string prefix = "Bearer ";
+    return header.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+        ? header[prefix.Length..].Trim()
+        : null;
 }
 
 static async Task<Bank> CreateBankAsync()
@@ -107,12 +158,18 @@ static async Task<Bank> CreateBankAsync()
     return bank;
 }
 
-public sealed record ChatRequest(string Question);
+public sealed record ApiLoginRequest(string Username, string Password);
 
-public sealed record ChatResponse(string Output, IReadOnlyList<string> ExecutorIds);
+public sealed record ApiLoginResponse(string Token, string Customer);
+
+public sealed record ApiChatRequest(string Question);
+
+public sealed record ApiChatResponse(string Output, IReadOnlyList<string> ExecutorIds);
 
 file sealed class NoOpAuditLogger : IAuditLogger
 {
     public Task LogAsync(long accountNumber, AccountAction action, decimal amount)
         => Task.CompletedTask;
 }
+
+public partial class Program;

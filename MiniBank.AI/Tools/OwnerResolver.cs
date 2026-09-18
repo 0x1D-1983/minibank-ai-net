@@ -9,7 +9,7 @@ namespace MiniBank.AI.Tools;
 
 internal static class OwnerResolver
 {
-    public static async Task<List<Account>> ResolveAsync(Bank bank, string owner)
+    public static async Task<List<Account>> ResolveAsync(CustomerBank bank, string owner)
     {
         if (string.IsNullOrWhiteSpace(owner))
             return [];

@@ -19,6 +19,9 @@ namespace Banking.Services
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        public CustomerBank ForCustomer(string customer) =>
+            new(this, customer);
+
         public Task AddAccountAsync(Account account) =>
             _accounts.AddAccountAsync(account);
 

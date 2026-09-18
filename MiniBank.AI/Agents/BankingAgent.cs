@@ -49,8 +49,8 @@ public sealed class BankingAgent
                         - get_balance: ONLY when the user supplied a specific account number. Never guess or invent one.
                         - get_owner_total_balance: how much a named customer has, when no account number was given.
                         - count_deposits_by_owner: how many deposits a named customer has made.
-                        - get_total_value: total of every account in the bank.
-                        - get_highest_balance_account: which account has the highest balance.
+                        - get_total_value: total of every account the authenticated customer may access.
+                        - get_highest_balance_account: which of the authenticated customer's accounts has the highest balance.
                         - get_deposits: ONLY deposits on a numbered account. Do not use this for full history.
                         - find_accounts_by_owner: list a customer's accounts.
                         - get_account_history: every transaction on a numbered account. Use this for history or "everything that happened".

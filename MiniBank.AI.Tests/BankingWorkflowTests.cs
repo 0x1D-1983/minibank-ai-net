@@ -26,7 +26,7 @@ public sealed class BankingWorkflowTests
     [Fact(Timeout = 180_000)]
     public async Task JaneDoeBalanceWithoutQuestionMark_ReturnsHerAccountNumber_NotAlice()
     {
-        var harness = await AgentTestHarness.CreateWorkflowAsync();
+        var harness = await AgentTestHarness.CreateWorkflowAsync(customer: "Jane Doe");
         var result = await harness.AskDetailedAsync("What's the account balance of Jane Doe");
 
         Assert.Contains(BankingWorkflow.IntentAgentId, result.ExecutorIds);
