@@ -9,16 +9,19 @@ namespace MiniBank.AI.Tools;
 
 internal static class OwnerResolver
 {
-    public static async Task<List<Account>> ResolveAsync(Bank bank, string owner)
+    /// <summary>
+    /// Resolves an owner name to accounts, scoped to the current customer's
+    /// accounts only. Uses AuthorizedBank to enforce authorization.
+    /// </summary>
+    public static async Task<List<Account>> ResolveAsync(AuthorizedBank bank, string owner)
     {
         if (string.IsNullOrWhiteSpace(owner))
             return [];
 
-        var exact = await bank.GetAccountsByOwnerAsync(owner);
-        if (exact.Count > 0)
-            return exact;
-
         var all = await bank.GetAllAccountsAsync();
+        if (all.Count == 0)
+            return [];
+
         var matches = all
             .GroupBy(account => account.Owner, StringComparer.OrdinalIgnoreCase)
             .Where(group => Matches(group.Key, owner))

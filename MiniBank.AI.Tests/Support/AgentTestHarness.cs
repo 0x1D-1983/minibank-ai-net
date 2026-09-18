@@ -20,9 +20,12 @@ internal sealed class AgentTestHarness
         Model = "qwen2.5:1.5b-instruct"
     };
 
+    public const string DefaultTestOwner = "John Smith";
+
     public RecordingAccountRepository Repository { get; }
     public RecordingChatClient Chat { get; }
     public Bank Bank { get; }
+    public AuthorizedBank AuthorizedBank { get; }
     public AIAgent Agent { get; }
     public BankingWorkflow? Workflow { get; }
     public RecordingWriteApprover? Approver { get; }
@@ -31,6 +34,7 @@ internal sealed class AgentTestHarness
         RecordingAccountRepository repository,
         RecordingChatClient chat,
         Bank bank,
+        AuthorizedBank authorizedBank,
         AIAgent agent,
         BankingWorkflow? workflow,
         RecordingWriteApprover? approver)
@@ -38,16 +42,17 @@ internal sealed class AgentTestHarness
         Repository = repository;
         Chat = chat;
         Bank = bank;
+        AuthorizedBank = authorizedBank;
         Agent = agent;
         Workflow = workflow;
         Approver = approver;
     }
 
-    public static Task<AgentTestHarness> CreateAsync()
-        => CreateCoreAsync(includeWorkflow: false);
+    public static Task<AgentTestHarness> CreateAsync(string owner = DefaultTestOwner)
+        => CreateCoreAsync(includeWorkflow: false, owner: owner);
 
-    public static Task<AgentTestHarness> CreateWorkflowAsync(bool approveWrites = true)
-        => CreateCoreAsync(includeWorkflow: true, approveWrites);
+    public static Task<AgentTestHarness> CreateWorkflowAsync(bool approveWrites = true, string owner = DefaultTestOwner)
+        => CreateCoreAsync(includeWorkflow: true, approveWrites, owner);
 
     public async Task<string> AskAsync(string question)
     {
@@ -64,7 +69,7 @@ internal sealed class AgentTestHarness
         return Workflow.RunDetailedAsync(question);
     }
 
-    private static async Task<AgentTestHarness> CreateCoreAsync(bool includeWorkflow, bool approveWrites = true)
+    private static async Task<AgentTestHarness> CreateCoreAsync(bool includeWorkflow, bool approveWrites = true, string owner = DefaultTestOwner)
     {
         await EnsureOllamaAsync();
 
@@ -73,12 +78,14 @@ internal sealed class AgentTestHarness
         await SeedAsync(bank);
         repository.ClearRecordings();
 
+        var authorizedBank = new AuthorizedBank(bank, owner);
+
         IChatClient ollama = new OllamaApiClient(new Uri(Ollama.Endpoint), Ollama.Model);
         var chat = new RecordingChatClient(ollama);
 
-        var accountTools = new AccountTools(bank);
-        var customerTools = new CustomerTools(bank);
-        var transactionTools = new TransactionTools(bank);
+        var accountTools = new AccountTools(authorizedBank);
+        var customerTools = new CustomerTools(authorizedBank);
+        var transactionTools = new TransactionTools(authorizedBank);
         var agent = new BankingAgent(accountTools, customerTools, transactionTools, Ollama, chatClient: chat).Agent;
 
         BankingWorkflow? workflow = null;
@@ -90,13 +97,13 @@ internal sealed class AgentTestHarness
                 accountTools,
                 customerTools,
                 transactionTools,
-                new OperationTools(bank),
+                new OperationTools(authorizedBank),
                 Ollama,
                 chatClient: chat,
                 approver: approver);
         }
 
-        return new AgentTestHarness(repository, chat, bank, agent, workflow, approver);
+        return new AgentTestHarness(repository, chat, bank, authorizedBank, agent, workflow, approver);
     }
 
     private static async Task EnsureOllamaAsync()

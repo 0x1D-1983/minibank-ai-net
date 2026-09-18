@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MiniBank.AI.Agents;
+using MiniBank.AI.Auth;
 using MiniBank.AI.Telemetry;
 using MiniBank.AI.Tools;
 using MiniBank.AI.Workflows;
@@ -33,16 +34,31 @@ try
     var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
     var logger = loggerFactory.CreateLogger("MiniBank.Console");
 
+    var authService = new InMemoryAuthenticationService();
     var bank = await CreateBankAsync();
-    var workflow = BankingWorkflow.Create(
-        new AccountTools(bank),
-        new CustomerTools(bank),
-        new TransactionTools(bank),
-        new OperationTools(bank),
-        OllamaOptions.FromConfiguration(builder.Configuration),
-        loggerFactory: loggerFactory);
 
     PrintWelcome();
+
+    var principal = await LoginAsync(authService, (Microsoft.Extensions.Logging.ILogger)logger);
+    if (principal is null)
+    {
+        Console.WriteLine("Login failed. Exiting.");
+        await app.StopAsync();
+        return;
+    }
+
+    logger.LogInformation("Customer authenticated: {Customer}", principal.Owner);
+    Console.WriteLine($"Welcome, {principal.Owner}! You can now ask questions about your accounts.");
+    Console.WriteLine();
+
+    var authorizedBank = new AuthorizedBank(bank, principal.Owner);
+    var workflow = BankingWorkflow.Create(
+        new AccountTools(authorizedBank),
+        new CustomerTools(authorizedBank),
+        new TransactionTools(authorizedBank),
+        new OperationTools(authorizedBank),
+        OllamaOptions.FromConfiguration(builder.Configuration),
+        loggerFactory: loggerFactory);
 
     while (true)
     {
@@ -84,9 +100,63 @@ finally
 
 static void PrintWelcome()
 {
-    Console.WriteLine("MiniBank assistant. Type a question, or quit to exit.");
-    Console.WriteLine("Accounts: 1234567890 Alice Example · 10001 / 10002 John Smith · 20001 Jane Doe");
+    Console.WriteLine("MiniBank assistant.");
+    Console.WriteLine("Demo users: alice, john, jane (password: password)");
     Console.WriteLine();
+}
+
+static async Task<CustomerPrincipal?> LoginAsync(IAuthenticationService authService, Microsoft.Extensions.Logging.ILogger logger)
+{
+    const int maxAttempts = 3;
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++)
+    {
+        Console.Write("Username: ");
+        var username = Console.ReadLine()?.Trim();
+        if (string.IsNullOrEmpty(username))
+        {
+            Console.WriteLine("Username cannot be empty.");
+            continue;
+        }
+
+        Console.Write("Password: ");
+        var password = ReadPassword();
+        Console.WriteLine();
+
+        var token = await authService.AuthenticateAsync(username, password);
+        if (token is null)
+        {
+            logger.LogWarning("Failed login attempt for username: {Username}", username);
+            Console.WriteLine($"Invalid credentials. {maxAttempts - attempt} attempts remaining.");
+            continue;
+        }
+
+        return await authService.ValidateTokenAsync(token);
+    }
+
+    return null;
+}
+
+static string ReadPassword()
+{
+    var password = new System.Text.StringBuilder();
+    while (true)
+    {
+        var key = Console.ReadKey(intercept: true);
+        if (key.Key == ConsoleKey.Enter)
+            break;
+        if (key.Key == ConsoleKey.Backspace && password.Length > 0)
+        {
+            password.Length--;
+            Console.Write("\b \b");
+        }
+        else if (!char.IsControl(key.KeyChar))
+        {
+            password.Append(key.KeyChar);
+            Console.Write('*');
+        }
+    }
+    return password.ToString();
 }
 
 static bool IsQuit(string question)

@@ -13,9 +13,9 @@ namespace MiniBank.AI.Tools;
 
 public sealed class TransactionTools
 {
-    private readonly Bank _bank;
+    private readonly AuthorizedBank _bank;
 
-    public TransactionTools(Bank bank)
+    public TransactionTools(AuthorizedBank bank)
     {
         _bank = bank;
     }

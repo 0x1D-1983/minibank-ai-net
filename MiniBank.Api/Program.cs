@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MiniBank.AI.Agents;
+using MiniBank.AI.Auth;
 using MiniBank.AI.Telemetry;
 using MiniBank.AI.Tools;
 using MiniBank.AI.Workflows;
@@ -34,17 +35,13 @@ var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var logger = loggerFactory.CreateLogger("MiniBank.Api");
 
 Bank bank;
-BankingWorkflow workflow;
+IAuthenticationService authService;
+OllamaOptions ollamaOptions;
 try
 {
     bank = await CreateBankAsync();
-    workflow = BankingWorkflow.Create(
-        new AccountTools(bank),
-        new CustomerTools(bank),
-        new TransactionTools(bank),
-        new OperationTools(bank),
-        OllamaOptions.FromConfiguration(app.Configuration),
-        loggerFactory: loggerFactory);
+    authService = new InMemoryAuthenticationService();
+    ollamaOptions = OllamaOptions.FromConfiguration(app.Configuration);
 }
 catch (Exception ex)
 {
@@ -55,14 +52,52 @@ catch (Exception ex)
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 
-app.MapPost("/chat", async (ChatRequest request, CancellationToken cancellationToken) =>
+app.MapPost("/login", async (LoginRequest request, CancellationToken cancellationToken) =>
 {
+    if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+    {
+        return Results.BadRequest(new { error = "Username and password are required" });
+    }
+
+    var token = await authService.AuthenticateAsync(request.Username, request.Password, cancellationToken);
+    if (token is null)
+    {
+        logger.LogWarning("Failed login attempt for username: {Username}", request.Username);
+        return Results.Json(new { error = "Invalid credentials" }, statusCode: 401);
+    }
+
+    var principal = await authService.ValidateTokenAsync(token, cancellationToken);
+    logger.LogInformation("Customer authenticated: {Customer}", principal?.Owner);
+
+    return Results.Ok(new LoginResponse(token));
+});
+
+app.MapPost("/chat", async (ChatRequest request, HttpContext context, CancellationToken cancellationToken) =>
+{
+    var principal = await AuthenticateRequestAsync(context, authService, cancellationToken);
+    if (principal is null)
+    {
+        return Results.Json(new { error = "Unauthorized" }, statusCode: 401);
+    }
+
     if (string.IsNullOrWhiteSpace(request.Question))
     {
         return Results.BadRequest(new { error = "Question cannot be empty" });
     }
 
-    logger.LogInformation("Sending question to MiniBank workflow: {Question}", request.Question);
+    logger.LogInformation(
+        "Sending question to MiniBank workflow for {Customer}: {Question}",
+        principal.Owner,
+        request.Question);
+
+    var authorizedBank = new AuthorizedBank(bank, principal.Owner);
+    var workflow = BankingWorkflow.Create(
+        new AccountTools(authorizedBank),
+        new CustomerTools(authorizedBank),
+        new TransactionTools(authorizedBank),
+        new OperationTools(authorizedBank),
+        ollamaOptions,
+        loggerFactory: loggerFactory);
 
     try
     {
@@ -88,6 +123,26 @@ finally
     await Log.CloseAndFlushAsync();
 }
 
+static async Task<CustomerPrincipal?> AuthenticateRequestAsync(
+    HttpContext context,
+    IAuthenticationService authService,
+    CancellationToken cancellationToken)
+{
+    var authHeader = context.Request.Headers.Authorization.ToString();
+    if (string.IsNullOrWhiteSpace(authHeader))
+        return null;
+
+    const string bearerPrefix = "Bearer ";
+    if (!authHeader.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
+        return null;
+
+    var token = authHeader[bearerPrefix.Length..].Trim();
+    if (string.IsNullOrWhiteSpace(token))
+        return null;
+
+    return await authService.ValidateTokenAsync(token, cancellationToken);
+}
+
 static async Task<Bank> CreateBankAsync()
 {
     var bank = new Bank(new InMemoryAccountRepository(), new NoOpAuditLogger());
@@ -107,6 +162,10 @@ static async Task<Bank> CreateBankAsync()
     return bank;
 }
 
+public sealed record LoginRequest(string Username, string Password);
+
+public sealed record LoginResponse(string Token);
+
 public sealed record ChatRequest(string Question);
 
 public sealed record ChatResponse(string Output, IReadOnlyList<string> ExecutorIds);
@@ -116,3 +175,5 @@ file sealed class NoOpAuditLogger : IAuditLogger
     public Task LogAsync(long accountNumber, AccountAction action, decimal amount)
         => Task.CompletedTask;
 }
+
+public partial class Program { }
