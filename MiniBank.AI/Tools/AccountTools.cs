@@ -25,11 +25,10 @@ public sealed class AccountTools
         return await account.GetBalanceAsync();
     }
 
-    [Description("List all accounts owned by a customer, including each account number and balance.")]
-    public async Task<List<AccountBalance>> FindAccountsByOwnerAsync(
-        [Description("The customer's full name.")] string owner)
+    [Description("List all accounts owned by the current customer, including each account number and balance.")]
+    public async Task<List<AccountBalance>> FindAccountsByOwnerAsync()
     {
-        var accounts = await OwnerResolver.ResolveAsync(_bank, owner);
+        var accounts = await _bank.GetAllAccountsAsync();
         return await ToBalancesAsync(accounts);
     }
 

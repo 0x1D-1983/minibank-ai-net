@@ -198,15 +198,16 @@ public sealed class AuthorizationTests
     }
 
     [Fact]
-    public async Task AccountTools_FindAccountsByOwner_ReturnsEmptyForOtherCustomer()
+    public async Task AccountTools_FindAccountsByOwner_ReturnsCurrentCustomerAccounts()
     {
         var (bank, _) = await CreateSeededBankAsync();
         var authorizedBank = new AuthorizedBank(bank, "John Smith");
         var tools = new AccountTools(authorizedBank);
 
-        var accounts = await tools.FindAccountsByOwnerAsync("Jane Doe");
+        var accounts = await tools.FindAccountsByOwnerAsync();
 
-        Assert.Empty(accounts);
+        Assert.Equal(2, accounts.Count);
+        Assert.All(accounts, account => Assert.Equal("John Smith", account.Owner));
     }
 
     [Fact]
@@ -236,27 +237,27 @@ public sealed class AuthorizationTests
     }
 
     [Fact]
-    public async Task CustomerTools_GetOwnerTotalBalance_ReturnsZeroForOtherCustomer()
+    public async Task CustomerTools_GetOwnerTotalBalance_UsesCurrentCustomer()
     {
         var (bank, _) = await CreateSeededBankAsync();
         var authorizedBank = new AuthorizedBank(bank, "John Smith");
         var tools = new CustomerTools(authorizedBank);
 
-        var total = await tools.GetOwnerTotalBalanceAsync("Jane Doe");
+        var total = await tools.GetOwnerTotalBalanceAsync();
 
-        Assert.Equal(0m, total);
+        Assert.Equal(2332.42m, total);
     }
 
     [Fact]
-    public async Task CustomerTools_CountDepositsByOwner_ReturnsZeroForOtherCustomer()
+    public async Task CustomerTools_CountDepositsByOwner_UsesCurrentCustomer()
     {
         var (bank, _) = await CreateSeededBankAsync();
         var authorizedBank = new AuthorizedBank(bank, "John Smith");
         var tools = new CustomerTools(authorizedBank);
 
-        var count = await tools.CountDepositsByOwnerAsync("Jane Doe");
+        var count = await tools.CountDepositsByOwnerAsync();
 
-        Assert.Equal(0, count);
+        Assert.Equal(2, count);
     }
 
     [Fact]

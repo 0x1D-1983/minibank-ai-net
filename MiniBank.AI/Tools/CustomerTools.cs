@@ -1,9 +1,9 @@
-using System.ComponentModel;
-using MiniBank.Domain.Models;
-using Banking.Services;
-using System.Threading.Tasks;
-using System.Linq;
 using System;
+using System.ComponentModel;
+using System.Linq;
+using System.Threading.Tasks;
+using Banking.Services;
+using MiniBank.Domain.Models;
 
 namespace MiniBank.AI.Tools;
 
@@ -16,20 +16,14 @@ public sealed class CustomerTools
         _bank = bank;
     }
 
-    [Description("Get how much money a named customer has in total across all of their accounts. Use this when the user asks for a customer's balance without giving an account number.")]
-    public async Task<decimal> GetOwnerTotalBalanceAsync(
-        [Description("The customer's full name.")] string owner)
-    {
-        var accounts = await OwnerResolver.ResolveAsync(_bank, owner);
-        var balances = await Task.WhenAll(accounts.Select(account => account.GetBalanceAsync()));
-        return balances.Sum();
-    }
+    [Description("Get how much money the current customer has in total across all of their accounts. Use this when the user asks for a balance without giving an account number.")]
+    public Task<decimal> GetOwnerTotalBalanceAsync()
+        => _bank.GetTotalBalanceAsync();
 
-    [Description("Count how many deposits a customer has made across all of their accounts.")]
-    public async Task<int> CountDepositsByOwnerAsync(
-        [Description("The customer's full name.")] string owner)
+    [Description("Count how many deposits the current customer has made across all of their accounts.")]
+    public async Task<int> CountDepositsByOwnerAsync()
     {
-        var accounts = await OwnerResolver.ResolveAsync(_bank, owner);
+        var accounts = await _bank.GetAllAccountsAsync();
         return accounts.Sum(CountDeposits);
     }
 

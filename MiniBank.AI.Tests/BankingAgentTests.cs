@@ -26,7 +26,7 @@ public sealed class BankingAgentTests
             "How much money does John Smith have across his accounts?");
 
         AgentAssert.ChoseTool(harness.Chat, "get_owner_total_balance");
-        AgentAssert.ReceivedArgument(harness.Chat, "get_owner_total_balance", "owner", "John Smith");
+        AgentAssert.ReceivedNoArguments(harness.Chat, "get_owner_total_balance");
         AgentAssert.LookedUpOwner(harness.Repository, "John Smith");
         AgentAssert.AnswerContainsFacts(answer, 2332.42m);
     }
@@ -38,7 +38,7 @@ public sealed class BankingAgentTests
         var answer = await harness.AskAsync("How many deposits has John Smith made?");
 
         AgentAssert.ChoseTool(harness.Chat, "count_deposits_by_owner");
-        AgentAssert.ReceivedArgument(harness.Chat, "count_deposits_by_owner", "owner", "John Smith");
+        AgentAssert.ReceivedNoArguments(harness.Chat, "count_deposits_by_owner");
         AgentAssert.LookedUpOwner(harness.Repository, "John Smith");
         AgentAssert.AnswerContainsFacts(answer, 2);
     }
@@ -84,7 +84,7 @@ public sealed class BankingAgentTests
         var answer = await harness.AskAsync("List the accounts owned by John Smith.");
 
         AgentAssert.ChoseTool(harness.Chat, "find_accounts_by_owner");
-        AgentAssert.ReceivedArgument(harness.Chat, "find_accounts_by_owner", "owner", "John Smith");
+        AgentAssert.ReceivedNoArguments(harness.Chat, "find_accounts_by_owner");
         AgentAssert.LookedUpOwner(harness.Repository, "John Smith");
         AgentAssert.AnswerContainsFacts(answer, 1532.42m, 800.00m);
     }

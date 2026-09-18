@@ -17,7 +17,7 @@ public sealed class BankingAgentAmbiguityTests
         var answer = await harness.AskAsync("What's John Smith's balance?");
 
         AgentAssert.ChoseTool(harness.Chat, "get_owner_total_balance");
-        AgentAssert.ReceivedArgument(harness.Chat, "get_owner_total_balance", "owner", "John Smith");
+        AgentAssert.ReceivedNoArguments(harness.Chat, "get_owner_total_balance");
         AgentAssert.DidNotChoose(harness.Chat, "get_balance");
         AgentAssert.LookedUpOwner(harness.Repository, "John Smith");
         Assert.Empty(harness.Repository.FindByIdArgs);
@@ -31,7 +31,7 @@ public sealed class BankingAgentAmbiguityTests
         var answer = await harness.AskAsync("How much does John Smith have in the bank?");
 
         AgentAssert.ChoseTool(harness.Chat, "get_owner_total_balance");
-        AgentAssert.ReceivedArgument(harness.Chat, "get_owner_total_balance", "owner", "John Smith");
+        AgentAssert.ReceivedNoArguments(harness.Chat, "get_owner_total_balance");
         AgentAssert.DidNotChoose(harness.Chat, "get_total_value");
         Assert.Equal(0, harness.Repository.AllCallCount);
         AgentAssert.AnswerContainsFacts(answer, 2332.42m);
@@ -57,7 +57,7 @@ public sealed class BankingAgentAmbiguityTests
         var answer = await harness.AskAsync("How many deposits has John Smith made?");
 
         AgentAssert.ChoseTool(harness.Chat, "count_deposits_by_owner");
-        AgentAssert.ReceivedArgument(harness.Chat, "count_deposits_by_owner", "owner", "John Smith");
+        AgentAssert.ReceivedNoArguments(harness.Chat, "count_deposits_by_owner");
         AgentAssert.DidNotChoose(harness.Chat, "get_deposits");
         Assert.Empty(harness.Repository.FindByIdArgs);
         AgentAssert.AnswerContainsFacts(answer, 2);
@@ -107,7 +107,7 @@ public sealed class BankingAgentAmbiguityTests
         var answer = await harness.AskAsync("Which accounts does John Smith have?");
 
         AgentAssert.ChoseTool(harness.Chat, "find_accounts_by_owner");
-        AgentAssert.ReceivedArgument(harness.Chat, "find_accounts_by_owner", "owner", "John Smith");
+        AgentAssert.ReceivedNoArguments(harness.Chat, "find_accounts_by_owner");
         AgentAssert.DidNotChoose(harness.Chat, "get_owner_total_balance");
         AgentAssert.AnswerContainsFacts(answer, 1532.42m, 800.00m);
     }

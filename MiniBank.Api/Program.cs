@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MiniBank.AI.Agents;
+using MiniBank.Api;
 using MiniBank.Auth;
 using MiniBank.AI.Telemetry;
 using MiniBank.AI.Tools;
@@ -27,9 +28,12 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Logging.ClearProviders();
 builder.Logging.AddSerilog(dispose: false);
-builder.Services.AddMiniBankTracing(builder.Configuration, "MiniBank.Api");
+builder.Services.AddMiniBankTracing(builder.Configuration, "MiniBank.Api", aspNetCore: true);
+builder.Services.AddExceptionHandler<ApplicationExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 var app = builder.Build();
+app.UseExceptionHandler();
 
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var logger = loggerFactory.CreateLogger("MiniBank.Api");
@@ -117,6 +121,11 @@ app.MapPost("/chat", async (ChatRequest request, HttpContext context, Cancellati
 try
 {
     await app.RunAsync();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "MiniBank.Api terminated unexpectedly");
+    throw;
 }
 finally
 {

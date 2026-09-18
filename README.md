@@ -15,7 +15,7 @@ The bank itself lives in this repo: accounts, concurrency, persistence, and the 
 | `MiniBank.AI` | Agents, tools, workflow, telemetry |
 | `MiniBank.Api` | Minimal API host + Serilog + OpenTelemetry |
 | `MiniBank.Console` | Interactive host + Serilog + OpenTelemetry |
-| `MiniBank.AI.Tests` | Query-agent tests, workflow routing tests, and owner-resolution unit tests |
+| `MiniBank.AI.Tests` | Query-agent tests, workflow routing tests, and authorization unit tests |
 
 Solution: `MiniBank.AI.slnx`.
 
@@ -159,11 +159,11 @@ Ollama-backed tests fail immediately if Ollama is not reachable. They are not pa
 
 Bank total: **£9,782.42**. John Smith’s combined balance: **£2,332.42**.
 
-Owner lookups accept a full name or a unique first name (`Alice` → Alice Example). Ambiguous tokens match nothing.
+Owner tools do not take a customer name. They use the logged-in customer from `AuthorizedBank`. Asking about someone else still returns **your** accounts.
 
 **Note:** After authentication, you can only query your own accounts. For example, if logged in as John Smith (username: `john`):
 - `What is my total balance?` → £2,332.42 (10001 + 10002)
-- `What is Jane's balance?` → No accounts found (you cannot see other customers)
+- `What is Jane's balance?` → still John’s total (£2,332.42); Jane’s accounts are not visible
 - `What is the highest balance account?` → Account 10001 with £1,532.42 (scoped to your accounts)
 
 ## Workflow
@@ -250,18 +250,18 @@ Listing deposits that already happened is a **query**, not `classify_deposit`.
 
 ### READ (query agent)
 
-Used only by `BankingAgent` / Query Executor. These never change balances. Owner-name tools go through `OwnerResolver`.
+Used only by `BankingAgent` / Query Executor. These never change balances. Owner and bank-wide tools are scoped to the logged-in customer (`AuthorizedBank`); they take no owner name.
 
 | Tool | When |
 |---|---|
-| `get_balance` | User supplied a specific account number |
-| `get_owner_total_balance` | Named customer, no account number |
-| `find_accounts_by_owner` | List a customer’s accounts |
-| `get_total_value` | Sum of every account in the bank |
-| `get_highest_balance_account` | Account with the largest balance |
-| `count_deposits_by_owner` | How many deposits a customer has made |
-| `get_deposits` | Deposits on one numbered account |
-| `get_account_history` | Full history of one numbered account |
+| `get_balance` | User supplied a specific account number they own |
+| `get_owner_total_balance` | Current customer’s total, when no account number was given |
+| `find_accounts_by_owner` | List the current customer’s accounts |
+| `get_total_value` | Sum of the current customer’s accounts |
+| `get_highest_balance_account` | The current customer’s account with the largest balance |
+| `count_deposits_by_owner` | How many deposits the current customer has made |
+| `get_deposits` | Deposits on one numbered account they own |
+| `get_account_history` | Full history of one numbered account they own |
 
 Implemented in `AccountTools`, `CustomerTools`, and `TransactionTools`; registered together by `QueryTools`.
 
@@ -292,7 +292,7 @@ Most tests use the real Ollama model, not a scripted chat client. `RecordingChat
 | `BankingAgentTests` | Unambiguous lookups: correct READ tool, arguments, and facts in the answer |
 | `BankingAgentAmbiguityTests` | Similar questions that must not pick the neighbouring tool |
 | `BankingWorkflowTests` | READ skips approval/transfer; approved transfer updates balances; rejected transfer does not |
-| `CustomerToolsTests` | Owner totals match a unique first name or a full name (no LLM) |
+| `CustomerToolsTests` | Owner total uses the authorized customer (no LLM) |
 | `AuthorizationTests` | Per-customer access control: John cannot read Jane's balance or debit 20001 (no LLM) |
 | `AuthenticationTests` | Mock auth service: valid/invalid credentials, token validation (no LLM) |
 
