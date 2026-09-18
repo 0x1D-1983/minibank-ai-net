@@ -1,7 +1,5 @@
 # MiniBank AI runtime (Kubernetes)
 
-> **Local API key:** before testing the gateway, put a throwaway key in `skaffold.env` (`AI_API_KEY`) and the matching `exact` value in `gateway/envoy.yaml` (RBAC `x-api-key`). The committed files leave it empty so GitHub secret scanning does not flag the repo. Do not commit the key.
-
 First version of an in-cluster model runtime. MiniBank keeps talking Ollama’s HTTP API; this stack is the practice environment instead of the standalone Ollama app.
 
 ## Target shape
@@ -30,16 +28,20 @@ First version of an in-cluster model runtime. MiniBank keeps talking Ollama’s 
     Llama          qwen2.5:1.5b-instruct           Mistral
 ```
 
+
+
 ## What v1 actually deploys
 
-| Target box | v1 stand-in |
-|---|---|
-| Developer | MiniBank.Api / curl on your machine |
-| Internal AI API | Envoy `ai-gateway` (`x-api-key`, 20 req/min, model routes) |
-| Inference scheduler | Kubernetes Service + Envoy clusters (`model-catalog`) |
+
+| Target box             | v1 stand-in                                                                 |
+| ---------------------- | --------------------------------------------------------------------------- |
+| Developer              | MiniBank.Api / curl on your machine                                         |
+| Internal AI API        | Envoy `ai-gateway` (`x-api-key`, 20 req/min, model routes)                  |
+| Inference scheduler    | Kubernetes Service + Envoy clusters (`model-catalog`)                       |
 | GPU cluster + vLLM/TGI | One CPU Ollama worker (no GPU required on Docker Desktop / kind / minikube) |
-| qwen2.5:1.5b-instruct | Live: `ollama` Deployment, model pulled onto a PVC |
-| Llama / Mistral | Routed, not deployed: `501` until you add those workers |
+| qwen2.5:1.5b-instruct  | Live: `ollama` Deployment, model pulled onto a PVC                          |
+| Llama / Mistral        | Routed, not deployed: `501` until you add those workers                     |
+
 
 ```
 Developer ──:11434──► ollama Service ──► Ollama (qwen2.5:1.5b-instruct)
@@ -80,6 +82,8 @@ Without Skaffold:
 kubectl apply -k ollama/
 kubectl apply -k gateway/
 ```
+
+
 
 ## Talk to the runtime
 
@@ -131,3 +135,4 @@ Change the served model in `ollama/configmap.yaml` (`OLLAMA_MODEL`) and keep `sk
 - Replace the in-Envoy API key with OIDC / `ext_authz`.
 - Replace Service round-robin with a real scheduler (KServe or Gateway API Inference Extension).
 - Terminate TLS on the gateway, as the Book API edge Envoy does.
+
