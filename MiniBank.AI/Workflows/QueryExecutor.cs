@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Agents.AI;
@@ -13,7 +14,17 @@ internal sealed class QueryExecutor(AIAgent queryAgent)
         IWorkflowContext context,
         CancellationToken cancellationToken = default)
     {
-        var response = await queryAgent.RunAsync(message.Question, cancellationToken: cancellationToken);
-        return response.Text;
+        try
+        {
+            var response = await queryAgent.RunAsync(message.Question, cancellationToken: cancellationToken);
+            return response.Text;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            if (AccountDenial.TryGet(ex, out var denial))
+                return denial.Message;
+
+            throw;
+        }
     }
 }

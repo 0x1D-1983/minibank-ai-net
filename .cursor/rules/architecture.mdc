@@ -18,7 +18,6 @@ New code depends inward, not sideways into a host.
 
 - Writes go Intent → Approval → Transfer/Decline. The model must not get deposit/withdraw/transfer tools (`OperationTools` is for `TransferExecutor` only).
 - Do not move business rules into Minimal API endpoints.
-- Do not add an interface, mediator, or base class for a single implementation.
 - Prefer composing `BankingWorkflow` / `Bank` over duplicating their behaviour.
 - Put every production repository in `MiniBank.Repositories` (`InMemoryAccountRepository`, `PostgresAccountRepository`, or a new store). Hosts only `new` it at the composition root. Do not add a local, duplicated, or `file` repository in `Program.cs` or a host. Test doubles that only record calls may stay in the test project.
 - An in-memory repository shared across HTTP requests must be safe for concurrent map access (lock or `ConcurrentDictionary`). Account balances stay behind existing per-account locks.

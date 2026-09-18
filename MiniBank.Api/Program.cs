@@ -108,6 +108,14 @@ app.MapPost("/chat", async (ChatRequest request, HttpContext context, Cancellati
         var result = await workflow.RunDetailedAsync(request.Question, cancellationToken);
         return Results.Ok(new ChatResponse(result.Output, result.ExecutorIds));
     }
+    catch (Exception ex) when (ex is not OperationCanceledException && AccountDenial.TryGet(ex, out var denial))
+    {
+        logger.LogWarning(denial, "Account not found for question: {Question}", request.Question);
+        return Results.Problem(
+            title: "Not found",
+            detail: denial.Message,
+            statusCode: StatusCodes.Status404NotFound);
+    }
     catch (Exception ex) when (ex is not OperationCanceledException)
     {
         logger.LogError(ex, "Workflow failed for question: {Question}", request.Question);
