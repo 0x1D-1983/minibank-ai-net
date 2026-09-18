@@ -12,6 +12,7 @@ New code depends inward, not sideways into a host.
 | `MiniBank.Domain` | Accounts, exceptions, locks. No IO or ASP.NET. |
 | `MiniBank.Repositories` | `IAccountRepository` and every concrete implementation. |
 | `MiniBank.Services` | `Bank` (only write path) and `IAuditLogger`. |
+| `MiniBank.Auth` | Customer identity seam (`IAuthenticationService`) and the in-memory mock. |
 | `MiniBank.AI` | Agents, tools, workflow, telemetry. |
 | Hosts (Console, API, tests) | Composition and config. No domain rules. |
 

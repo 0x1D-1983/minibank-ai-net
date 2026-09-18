@@ -10,9 +10,9 @@ namespace MiniBank.AI.Tools;
 /// </summary>
 public sealed class OperationTools
 {
-    private readonly Bank _bank;
+    private readonly AuthorizedBank _bank;
 
-    public OperationTools(Bank bank)
+    public OperationTools(AuthorizedBank bank)
     {
         _bank = bank;
     }

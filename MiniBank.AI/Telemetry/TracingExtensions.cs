@@ -11,7 +11,8 @@ public static class TracingExtensions
     public static IServiceCollection AddMiniBankTracing(
         this IServiceCollection services,
         IConfiguration configuration,
-        string serviceName)
+        string serviceName,
+        bool aspNetCore = false)
     {
         services.AddOptions<TracingOptions>()
             .Bind(configuration.GetSection(TracingOptions.SectionName))
@@ -42,6 +43,16 @@ public static class TracingExtensions
                     {
                         otlp.Endpoint = new Uri(options.OtlpEndpoint);
                     });
+
+                if (aspNetCore)
+                {
+                    tracing.AddAspNetCoreInstrumentation(asp =>
+                    {
+                        asp.RecordException = true;
+                        asp.Filter = context =>
+                            !context.Request.Path.StartsWithSegments("/health");
+                    });
+                }
             });
 
         return services;

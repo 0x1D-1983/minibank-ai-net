@@ -11,6 +11,7 @@ Solution: `MiniBank.AI.slnx`. Target `net10.0`.
 | `MiniBank.Domain` | Accounts, exceptions, locks. No IO, hosts, or ASP.NET. |
 | `MiniBank.Repositories` | `IAccountRepository` and `PostgresAccountRepository`. |
 | `MiniBank.Services` | `Bank` (the only write path) and `IAuditLogger`. |
+| `MiniBank.Auth` | `IAuthenticationService` and the in-memory mock identity server. |
 | `MiniBank.AI` | Agents, tools, `BankingWorkflow`, telemetry. |
 | `MiniBank.Console` / `MiniBank.Api` | Thin hosts: composition, config, CLI/HTTP. |
 | `MiniBank.AI.Tests` | Query, workflow, and owner-resolution tests. |

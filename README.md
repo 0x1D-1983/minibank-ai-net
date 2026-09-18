@@ -11,10 +11,11 @@ The bank itself lives in this repo: accounts, concurrency, persistence, and the 
 | `MiniBank.Domain` | Accounts (`CurrentAccount`, `SavingsAccount`), exceptions, per-account locks |
 | `MiniBank.Repositories` | `IAccountRepository` and `PostgresAccountRepository` |
 | `MiniBank.Services` | `Bank` (deposit / withdraw / transfer) and `IAuditLogger` |
+| `MiniBank.Auth` | `IAuthenticationService` and in-memory mock identity server |
 | `MiniBank.AI` | Agents, tools, workflow, telemetry |
 | `MiniBank.Api` | Minimal API host + Serilog + OpenTelemetry |
 | `MiniBank.Console` | Interactive host + Serilog + OpenTelemetry |
-| `MiniBank.AI.Tests` | Query-agent tests, workflow routing tests, and owner-resolution unit tests |
+| `MiniBank.AI.Tests` | Query-agent tests, workflow routing tests, and authorization unit tests |
 
 Solution: `MiniBank.AI.slnx`.
 
@@ -49,13 +50,36 @@ Optional: an OTLP collector at `http://localhost:4317` (see `MiniBank.Console/ap
 
 ## Run
 
+### Authentication
+
+Both hosts require authentication. Users can only see and modify their own accounts. The system uses an in-memory mock identity server with three demo users matching the seeded accounts:
+
+| Username | Password | Customer Name | Accounts |
+|---|---|---|---|
+| alice | password | Alice Example | 1234567890 |
+| john | password | John Smith | 10001, 10002 |
+| jane | password | Jane Doe | 20001 |
+
 ### Console
 
 ```bash
 dotnet run --project MiniBank.Console
 ```
 
-The console seeds the in-memory bank, then prompts for questions. Type `quit` (or `exit` / `q` / `bye`) to leave. After each turn it prints the executor path (`IntentAgent → QueryExecutor`, and so on) and the assistant reply.
+The console prompts for credentials before starting the chat loop:
+
+```
+MiniBank assistant.
+Demo users: alice, john, jane (password: password)
+
+Username: john
+Password: ********
+Welcome, John Smith! You can now ask questions about your accounts.
+
+You: What is my balance?
+```
+
+After login, every question runs as that customer until the process exits. You can only see and manage accounts you own. Type `quit` (or `exit` / `q` / `bye`) to leave.
 
 ### API
 
@@ -65,14 +89,34 @@ dotnet run --project MiniBank.Api
 
 The API serves at `http://localhost:5000` by default. It exposes:
 
-- `POST /chat` — accepts a question and returns the workflow answer plus executor path
-- `GET /health` — returns `200 OK` without calling Ollama
+- `POST /login` — authenticates and returns a bearer token
+- `POST /chat` — requires authentication, returns the workflow answer
+- `GET /health` — returns `200 OK` without authentication
 
-Example:
+#### Login
+
+```bash
+curl -X POST http://localhost:5000/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "john", "password": "password"}'
+```
+
+Response:
+
+```json
+{
+  "token": "abc123..."
+}
+```
+
+#### Chat (authenticated)
+
+Use the token from login in the `Authorization` header:
 
 ```bash
 curl -X POST http://localhost:5000/chat \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
   -d '{"question": "What is the balance of account 10001?"}'
 ```
 
@@ -85,7 +129,15 @@ Response:
 }
 ```
 
-The API uses the same in-memory bank seeding as the Console, so all existing questions in this README work.
+Unauthenticated requests to `/chat` return `401 Unauthorized`. The API uses the same in-memory bank seeding as the Console.
+
+#### Per-customer authorisation
+
+Each customer can only access their own accounts:
+
+- **John Smith** can query accounts 10001 and 10002, but not 20001 (Jane's) or 1234567890 (Alice's)
+- Transfers are allowed **from** your own accounts **to** any account (you can pay someone else)
+- You cannot transfer **from** another customer's account
 
 ### Tests
 
@@ -106,7 +158,12 @@ Ollama-backed tests fail immediately if Ollama is not reachable. They are not pa
 
 Bank total: **£9,782.42**. John Smith’s combined balance: **£2,332.42**.
 
-Owner lookups accept a full name or a unique first name (`Alice` → Alice Example). Ambiguous tokens match nothing.
+Owner tools do not take a customer name. They use the logged-in customer from `AuthorizedBank` and return that customer's **name** with the figures. The query agent is told who it is assisting so it can tell “my balance” from a request about someone else.
+
+**Note:** After authentication, you can only query your own accounts. For example, if logged in as John Smith (username: `john`):
+- `What is my total balance?` → John Smith's total is £2,332.42 (10001 + 10002)
+- `What is Jane's balance?` → declined: you can only see John Smith's accounts; Jane is not visible. The answer must not present John's £2,332.42 as Jane's.
+- `Which accounts do I have?` → 10001 (£1,532.42) and 10002 (£800.00)
 
 ## Workflow
 
@@ -192,18 +249,15 @@ Listing deposits that already happened is a **query**, not `classify_deposit`.
 
 ### READ (query agent)
 
-Used only by `BankingAgent` / Query Executor. These never change balances. Owner-name tools go through `OwnerResolver`.
+Used only by `BankingAgent` / Query Executor. These never change balances. Tools are scoped to the logged-in customer (`AuthorizedBank`); they take no owner name.
 
 | Tool | When |
 |---|---|
-| `get_balance` | User supplied a specific account number |
-| `get_owner_total_balance` | Named customer, no account number |
-| `find_accounts_by_owner` | List a customer’s accounts |
-| `get_total_value` | Sum of every account in the bank |
-| `get_highest_balance_account` | Account with the largest balance |
-| `count_deposits_by_owner` | How many deposits a customer has made |
-| `get_deposits` | Deposits on one numbered account |
-| `get_account_history` | Full history of one numbered account |
+| `find_accounts_by_owner` | List the current customer’s accounts and balances (including a specific account) |
+| `get_owner_total_balance` | Current customer’s total, when no account number was given |
+| `count_deposits_by_owner` | How many deposits the current customer has made |
+| `get_deposits` | Deposits on one numbered account they own |
+| `get_account_history` | Full history of one numbered account they own |
 
 Implemented in `AccountTools`, `CustomerTools`, and `TransactionTools`; registered together by `QueryTools`.
 
@@ -232,9 +286,11 @@ Most tests use the real Ollama model, not a scripted chat client. `RecordingChat
 | Class | What it asserts |
 |---|---|
 | `BankingAgentTests` | Unambiguous lookups: correct READ tool, arguments, and facts in the answer |
-| `BankingAgentAmbiguityTests` | Similar questions that must not pick the neighbouring tool |
+| `BankingAgentAmbiguityTests` | Neighbouring tools, and a named other customer is not answered with the logged-in total |
 | `BankingWorkflowTests` | READ skips approval/transfer; approved transfer updates balances; rejected transfer does not |
-| `CustomerToolsTests` | Owner totals match a unique first name or a full name (no LLM) |
+| `CustomerToolsTests` | Owner total uses the authorized customer (no LLM) |
+| `AuthorizationTests` | Per-customer access control: John cannot read Jane's balance or debit 20001 (no LLM) |
+| `AuthenticationTests` | Mock auth service: valid/invalid credentials, token validation (no LLM) |
 
 Answer assertions check amounts and names, not exact LLM wording.
 

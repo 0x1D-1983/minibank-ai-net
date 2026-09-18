@@ -1,36 +1,36 @@
-using System.ComponentModel;
-using MiniBank.Domain.Models;
-using Banking.Services;
-using System.Threading.Tasks;
-using System.Linq;
 using System;
+using System.ComponentModel;
+using System.Linq;
+using System.Threading.Tasks;
+using Banking.Services;
+using MiniBank.AI.Models;
+using MiniBank.Domain.Models;
 
 namespace MiniBank.AI.Tools;
 
 public sealed class CustomerTools
 {
-    private readonly Bank _bank;
+    private readonly AuthorizedBank _bank;
 
-    public CustomerTools(Bank bank)
+    public CustomerTools(AuthorizedBank bank)
     {
         _bank = bank;
     }
 
-    [Description("Get how much money a named customer has in total across all of their accounts. Use this when the user asks for a customer's balance without giving an account number.")]
-    public async Task<decimal> GetOwnerTotalBalanceAsync(
-        [Description("The customer's full name.")] string owner)
+    public string CurrentOwner => _bank.CurrentOwner;
+
+    [Description("Get the logged-in customer's name and their total balance across all of their accounts. The Owner field is whose money this is. Use only when they ask about their own balance. Do not use this if they named a different customer.")]
+    public async Task<OwnerTotal> GetOwnerTotalBalanceAsync()
     {
-        var accounts = await OwnerResolver.ResolveAsync(_bank, owner);
-        var balances = await Task.WhenAll(accounts.Select(account => account.GetBalanceAsync()));
-        return balances.Sum();
+        var total = await _bank.GetTotalBalanceAsync();
+        return new OwnerTotal(_bank.CurrentOwner, total);
     }
 
-    [Description("Count how many deposits a customer has made across all of their accounts.")]
-    public async Task<int> CountDepositsByOwnerAsync(
-        [Description("The customer's full name.")] string owner)
+    [Description("Count how many deposits the logged-in customer has made. The Owner field is whose deposits these are. Do not use this if they named a different customer.")]
+    public async Task<OwnerDepositCount> CountDepositsByOwnerAsync()
     {
-        var accounts = await OwnerResolver.ResolveAsync(_bank, owner);
-        return accounts.Sum(CountDeposits);
+        var accounts = await _bank.GetAllAccountsAsync();
+        return new OwnerDepositCount(_bank.CurrentOwner, accounts.Sum(CountDeposits));
     }
 
     private static int CountDeposits(Account account)

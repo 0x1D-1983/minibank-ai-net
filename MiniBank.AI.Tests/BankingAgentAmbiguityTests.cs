@@ -1,3 +1,5 @@
+using System;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using MiniBank.AI.Tests.Support;
 
@@ -17,8 +19,8 @@ public sealed class BankingAgentAmbiguityTests
         var answer = await harness.AskAsync("What's John Smith's balance?");
 
         AgentAssert.ChoseTool(harness.Chat, "get_owner_total_balance");
-        AgentAssert.ReceivedArgument(harness.Chat, "get_owner_total_balance", "owner", "John Smith");
-        AgentAssert.DidNotChoose(harness.Chat, "get_balance");
+        AgentAssert.ReceivedNoArguments(harness.Chat, "get_owner_total_balance");
+        AgentAssert.DidNotChoose(harness.Chat, "find_accounts_by_owner");
         AgentAssert.LookedUpOwner(harness.Repository, "John Smith");
         Assert.Empty(harness.Repository.FindByIdArgs);
         AgentAssert.AnswerContainsFacts(answer, 2332.42m);
@@ -31,23 +33,9 @@ public sealed class BankingAgentAmbiguityTests
         var answer = await harness.AskAsync("How much does John Smith have in the bank?");
 
         AgentAssert.ChoseTool(harness.Chat, "get_owner_total_balance");
-        AgentAssert.ReceivedArgument(harness.Chat, "get_owner_total_balance", "owner", "John Smith");
-        AgentAssert.DidNotChoose(harness.Chat, "get_total_value");
+        AgentAssert.ReceivedNoArguments(harness.Chat, "get_owner_total_balance");
         Assert.Equal(0, harness.Repository.AllCallCount);
         AgentAssert.AnswerContainsFacts(answer, 2332.42m);
-    }
-
-    [Fact(Timeout = 180_000)]
-    public async Task TotalValueOfAllAccounts_UsesBankTotal_NotOwnerTotal()
-    {
-        var harness = await AgentTestHarness.CreateAsync();
-        var answer = await harness.AskAsync("What's the total across every account in the bank?");
-
-        AgentAssert.ChoseTool(harness.Chat, "get_total_value");
-        AgentAssert.DidNotChoose(harness.Chat, "get_owner_total_balance");
-        Assert.True(harness.Repository.AllCallCount > 0);
-        Assert.Empty(harness.Repository.FindByOwnerArgs);
-        AgentAssert.AnswerContainsFacts(answer, 9782.42m);
     }
 
     [Fact(Timeout = 180_000)]
@@ -57,7 +45,7 @@ public sealed class BankingAgentAmbiguityTests
         var answer = await harness.AskAsync("How many deposits has John Smith made?");
 
         AgentAssert.ChoseTool(harness.Chat, "count_deposits_by_owner");
-        AgentAssert.ReceivedArgument(harness.Chat, "count_deposits_by_owner", "owner", "John Smith");
+        AgentAssert.ReceivedNoArguments(harness.Chat, "count_deposits_by_owner");
         AgentAssert.DidNotChoose(harness.Chat, "get_deposits");
         Assert.Empty(harness.Repository.FindByIdArgs);
         AgentAssert.AnswerContainsFacts(answer, 2);
@@ -90,25 +78,29 @@ public sealed class BankingAgentAmbiguityTests
     }
 
     [Fact(Timeout = 180_000)]
-    public async Task LargestAccount_UsesHighestBalance_NotBankTotal()
-    {
-        var harness = await AgentTestHarness.CreateAsync();
-        var answer = await harness.AskAsync("Which customer account is the largest?");
-
-        AgentAssert.ChoseTool(harness.Chat, "get_highest_balance_account");
-        AgentAssert.DidNotChoose(harness.Chat, "get_total_value");
-        AgentAssert.AnswerContainsFacts(answer, "Jane Doe", 5000.00m);
-    }
-
-    [Fact(Timeout = 180_000)]
     public async Task ListJohnsAccounts_UsesFindAccounts_NotOwnerTotal()
     {
         var harness = await AgentTestHarness.CreateAsync();
         var answer = await harness.AskAsync("Which accounts does John Smith have?");
 
         AgentAssert.ChoseTool(harness.Chat, "find_accounts_by_owner");
-        AgentAssert.ReceivedArgument(harness.Chat, "find_accounts_by_owner", "owner", "John Smith");
+        AgentAssert.ReceivedNoArguments(harness.Chat, "find_accounts_by_owner");
         AgentAssert.DidNotChoose(harness.Chat, "get_owner_total_balance");
         AgentAssert.AnswerContainsFacts(answer, 1532.42m, 800.00m);
+    }
+
+    [Fact(Timeout = 180_000)]
+    public async Task OtherCustomerByName_DoesNotAttributeCurrentCustomerTotalToThem()
+    {
+        var harness = await AgentTestHarness.CreateAsync();
+        var answer = await harness.AskAsync("What is Jane Doe's balance?");
+
+        Assert.False(
+            Regex.IsMatch(answer, @"Jane.{0,80}2,?332|2,?332.{0,80}Jane", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+            $"Attributed the logged-in customer's total to Jane: {answer}");
+        Assert.False(
+            Regex.IsMatch(answer, @"Jane.{0,80}5,?000|5,?000.{0,80}Jane", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+            $"Leaked Jane Doe's balance: {answer}");
+        Assert.Contains("John Smith", answer, StringComparison.OrdinalIgnoreCase);
     }
 }
