@@ -1,7 +1,9 @@
 using MiniBank.Domain.Models;
 using Banking.Services;
+using MiniBank.AI.Models;
 using MiniBank.AI.Tests.Support;
 using MiniBank.AI.Tools;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Threading.Tasks;
 
 namespace MiniBank.AI.Tests;
@@ -18,8 +20,12 @@ public sealed class CustomerToolsTests
         repository.ClearRecordings();
 
         var authorizedBank = new AuthorizedBank(bank, "Alice Example");
-        var summary = await new CustomerTools(authorizedBank).GetOwnerTotalBalanceAsync();
+        var result = await new CustomerTools(authorizedBank, NullLogger<CustomerTools>.Instance)
+            .GetOwnerTotalBalanceAsync();
+        var summary = Assert.IsType<OwnerTotal>(result.Data);
 
+        Assert.True(result.Success);
+        Assert.Equal("SUCCESS", result.ErrorCode);
         Assert.Equal("Alice Example", summary.Owner);
         Assert.Equal(2_450.00m, summary.Total);
         AgentAssert.LookedUpOwner(repository, "Alice Example");

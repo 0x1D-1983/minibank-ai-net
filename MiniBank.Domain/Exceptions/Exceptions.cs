@@ -2,27 +2,53 @@ using System;
 
 namespace MiniBank.Domain.Exceptions;
 
-public class InvalidAmountException : Exception
+public abstract class BankDomainException : Exception
 {
-    public InvalidAmountException(string message) : base(message) { }
+    public string ErrorCode { get; }
+    public bool IsRetryable { get; }
+
+    protected BankDomainException(string errorCode, string message, bool isRetryable, Exception? inner = null)
+        : base(message, inner)
+    {
+        ErrorCode = errorCode;
+        IsRetryable = isRetryable;
+    }
 }
 
-public class InsufficientFundsException : Exception
+public class InvalidAmountException : BankDomainException
 {
-    public InsufficientFundsException(string message) : base(message) { }
+    public InvalidAmountException(string message)
+        : base("INVALID_AMOUNT", message, isRetryable: false) { }
 }
 
-public class OverdraftException : Exception
+public class InsufficientFundsException : BankDomainException
 {
-    public OverdraftException(string message) : base(message) { }
+    public InsufficientFundsException(string message)
+        : base("INSUFFICIENT_FUNDS", message, isRetryable: false) { }
 }
 
-public class AccountNotFoundException : Exception
+public class OverdraftException : InsufficientFundsException
 {
-    public AccountNotFoundException(string message) : base(message) { }
+    public OverdraftException(string message) : base(message)
+    {
+        // still ErrorCode = "INSUFFICIENT_FUNDS" via base
+    }
 }
 
-public class AuthorizationException : Exception
+public class AccountNotFoundException : BankDomainException
 {
-    public AuthorizationException(string message) : base(message) { }
+    public AccountNotFoundException(string message)
+        : base("ACCOUNT_NOT_FOUND", message, isRetryable: false) { }
+}
+
+public class AuthorizationException : BankDomainException
+{
+    public AuthorizationException(string message)
+        : base("UNAUTHORIZED", message, isRetryable: false) { }
+}
+
+public class BankServiceUnavailableException : BankDomainException
+{
+    public BankServiceUnavailableException(Exception inner)
+        : base("BANK_UNAVAILABLE", "Bank service unreachable", true, inner) { }
 }

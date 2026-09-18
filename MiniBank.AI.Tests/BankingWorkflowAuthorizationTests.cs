@@ -8,6 +8,7 @@ using MiniBank.AI.Tests.Support;
 using MiniBank.AI.Tools;
 using MiniBank.AI.Workflows;
 using MiniBank.Domain.Models;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MiniBank.AI.Tests;
 
@@ -68,6 +69,9 @@ public sealed class BankingWorkflowAuthorizationTests
 
         Assert.Contains("doesn't exist", result.Output, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("20001", result.Output);
+        Assert.False(result.Result.Success);
+        Assert.Equal("ACCOUNT_NOT_FOUND", result.Result.ErrorCode);
+        Assert.False(result.Result.Retryable);
         Assert.Contains(BankingWorkflow.TransferExecutorId, result.ExecutorIds);
         Assert.DoesNotContain(BankingWorkflow.QueryExecutorId, result.ExecutorIds);
     }
@@ -84,10 +88,10 @@ public sealed class BankingWorkflowAuthorizationTests
         var chat = new ScriptedChatClient(respond);
 
         return BankingWorkflow.Create(
-            new AccountTools(authorizedBank),
-            new CustomerTools(authorizedBank),
-            new TransactionTools(authorizedBank),
-            new OperationTools(authorizedBank),
+            new AccountTools(authorizedBank, NullLogger<AccountTools>.Instance),
+            new CustomerTools(authorizedBank, NullLogger<CustomerTools>.Instance),
+            new TransactionTools(authorizedBank, NullLogger<TransactionTools>.Instance),
+            new OperationTools(authorizedBank, NullLogger<OperationTools>.Instance),
             UnusedOllama,
             chatClient: chat);
     }

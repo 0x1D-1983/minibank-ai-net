@@ -76,5 +76,8 @@ public sealed class BankingWorkflowTests
         Assert.Equal(1532.42m, await (await harness.Bank.FindAccountAsync(10001))!.GetBalanceAsync());
         Assert.Equal(5000.00m, await (await harness.Bank.FindAccountAsync(20001))!.GetBalanceAsync());
         Assert.Contains("Declined", result.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.False(result.Result.Success);
+        Assert.Equal("DECLINED", result.Result.ErrorCode);
+        Assert.False(result.Result.Retryable);
     }
 }

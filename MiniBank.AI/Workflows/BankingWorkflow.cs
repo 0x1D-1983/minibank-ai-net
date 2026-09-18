@@ -8,6 +8,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using MiniBank.AI.Agents;
+using MiniBank.AI.Models;
 using MiniBank.AI.Tools;
 
 namespace MiniBank.AI.Workflows;
@@ -53,9 +54,12 @@ public sealed class BankingWorkflow
 
         var intent = new IntentExecutor(new IntentAgent(ollama, chatClient, loggerFactory));
         var query = new QueryExecutor(
-            new BankingAgent(accountTools, customerTools, transactionTools, ollama, chatClient, loggerFactory).Agent);
+            new BankingAgent(accountTools, customerTools, transactionTools, ollama, chatClient, loggerFactory).Agent,
+            loggerFactory.CreateLogger<QueryExecutor>());
         var approval = new ApprovalExecutor(approver);
-        var transfer = new TransferExecutor(operationTools);
+        var transfer = new TransferExecutor(
+            operationTools,
+            loggerFactory.CreateLogger<TransferExecutor>());
         var decline = new DeclineExecutor();
 
         var workflow = new WorkflowBuilder(intent)
@@ -76,15 +80,8 @@ public sealed class BankingWorkflow
 
     public async Task<string> RunAsync(string question, CancellationToken cancellationToken = default)
     {
-        await using var run = await InProcessExecution.RunAsync(Workflow, question, cancellationToken: cancellationToken);
-
-        foreach (var evt in run.OutgoingEvents.OfType<WorkflowOutputEvent>())
-        {
-            if (evt.Is<string>(out var text) && !string.IsNullOrWhiteSpace(text))
-                return text;
-        }
-
-        return string.Empty;
+        var detailed = await RunDetailedAsync(question, cancellationToken);
+        return detailed.Output;
     }
 
     public async Task<WorkflowRunResult> RunDetailedAsync(string question, CancellationToken cancellationToken = default)
@@ -92,17 +89,21 @@ public sealed class BankingWorkflow
         await using var run = await InProcessExecution.RunAsync(Workflow, question, cancellationToken: cancellationToken);
         var events = run.OutgoingEvents.ToList();
 
-        var output = events.OfType<WorkflowOutputEvent>()
-            .Select(evt => evt.Is<string>(out var text) ? text : null)
-            .LastOrDefault(text => !string.IsNullOrWhiteSpace(text)) ?? string.Empty;
+        var result = events.OfType<WorkflowOutputEvent>()
+            .Select(evt => evt.Is<ToolResult>(out var toolResult) ? toolResult : null)
+            .LastOrDefault(toolResult => toolResult is not null)
+            ?? new ToolResult(false, string.Empty, "NO_OUTPUT", Retryable: false);
 
         var executorIds = events
             .OfType<ExecutorCompletedEvent>()
             .Select(evt => evt.ExecutorId)
             .ToList();
 
-        return new WorkflowRunResult(output, executorIds);
+        return new WorkflowRunResult(result, executorIds);
     }
 }
 
-public sealed record WorkflowRunResult(string Output, IReadOnlyList<string> ExecutorIds);
+public sealed record WorkflowRunResult(ToolResult Result, IReadOnlyList<string> ExecutorIds)
+{
+    public string Output => Result.UserFacingMessage ?? string.Empty;
+}

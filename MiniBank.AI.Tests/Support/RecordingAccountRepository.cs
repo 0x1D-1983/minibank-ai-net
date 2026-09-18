@@ -1,5 +1,6 @@
 using MiniBank.Domain.Models;
 using Banking.Repositories;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,34 +17,39 @@ internal sealed class RecordingAccountRepository : IAccountRepository
     public int AllCallCount { get; private set; }
     public int UpdateCallCount { get; private set; }
 
-    public Task AddAccountAsync(Account account)
+    public Task AddAccountAsync(Account account, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         _accounts[account.AccountNumber] = account;
         return Task.CompletedTask;
     }
 
-    public Task<Account?> FindByIdAsync(long accountNumber)
+    public Task<Account?> FindByIdAsync(long accountNumber, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         FindByIdArgs.Add(accountNumber);
         return Task.FromResult(_accounts.TryGetValue(accountNumber, out var account) ? account : null);
     }
 
-    public Task<List<Account>> AllAsync()
+    public Task<List<Account>> AllAsync(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         AllCallCount++;
         return Task.FromResult(_accounts.Values.ToList());
     }
 
-    public Task<List<Account>> FindByOwnerAsync(string owner)
+    public Task<List<Account>> FindByOwnerAsync(string owner, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         FindByOwnerArgs.Add(owner);
         return Task.FromResult(_accounts.Values
             .Where(account => account.Owner.Equals(owner, StringComparison.OrdinalIgnoreCase))
             .ToList());
     }
 
-    public Task UpdateAccountAsync(Account account)
+    public Task UpdateAccountAsync(Account account, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         UpdateCallCount++;
         _accounts[account.AccountNumber] = account;
         return Task.CompletedTask;

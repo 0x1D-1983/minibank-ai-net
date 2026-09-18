@@ -5,6 +5,7 @@ using Microsoft.Extensions.AI;
 using MiniBank.AI.Agents;
 using MiniBank.AI.Tools;
 using MiniBank.AI.Workflows;
+using Microsoft.Extensions.Logging.Abstractions;
 using OllamaSharp;
 using System.Threading.Tasks;
 using System.Net.Http;
@@ -83,9 +84,9 @@ internal sealed class AgentTestHarness
         IChatClient ollama = new OllamaApiClient(new Uri(Ollama.Endpoint), Ollama.Model);
         var chat = new RecordingChatClient(ollama);
 
-        var accountTools = new AccountTools(authorizedBank);
-        var customerTools = new CustomerTools(authorizedBank);
-        var transactionTools = new TransactionTools(authorizedBank);
+        var accountTools = new AccountTools(authorizedBank, NullLogger<AccountTools>.Instance);
+        var customerTools = new CustomerTools(authorizedBank, NullLogger<CustomerTools>.Instance);
+        var transactionTools = new TransactionTools(authorizedBank, NullLogger<TransactionTools>.Instance);
         var agent = new BankingAgent(accountTools, customerTools, transactionTools, Ollama, chatClient: chat).Agent;
 
         BankingWorkflow? workflow = null;
@@ -97,7 +98,7 @@ internal sealed class AgentTestHarness
                 accountTools,
                 customerTools,
                 transactionTools,
-                new OperationTools(authorizedBank),
+                new OperationTools(authorizedBank, NullLogger<OperationTools>.Instance),
                 Ollama,
                 chatClient: chat,
                 approver: approver);

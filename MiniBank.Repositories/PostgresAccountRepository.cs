@@ -21,12 +21,12 @@ public class PostgresAccountRepository : IAccountRepository, IAsyncDisposable
         _connectionString = connectionString;
     }
 
-    private async Task<NpgsqlDataSource> GetDataSourceAsync()
+    private async Task<NpgsqlDataSource> GetDataSourceAsync(CancellationToken cancellationToken = default)
     {
         if (_dataSource is not null)
             return _dataSource;
 
-        await _initLock.WaitAsync();
+        await _initLock.WaitAsync(cancellationToken);
         try
         {
             // Double-checked locking: another caller may have initialized
@@ -58,7 +58,7 @@ public class PostgresAccountRepository : IAccountRepository, IAsyncDisposable
 
     public async ValueTask DisposeAsync() => await CloseAsync();
 
-    public async Task AddAccountAsync(Account account)
+    public async Task AddAccountAsync(Account account, CancellationToken cancellationToken = default)
     {
         string typeVal;
         decimal? interestRate;
@@ -82,8 +82,8 @@ public class PostgresAccountRepository : IAccountRepository, IAsyncDisposable
 
         var balance = await account.GetBalanceAsync();
 
-        var dataSource = await GetDataSourceAsync();
-        await using var conn = await dataSource.OpenConnectionAsync();
+        var dataSource = await GetDataSourceAsync(cancellationToken);
+        await using var conn = await dataSource.OpenConnectionAsync(cancellationToken);
         await using var cmd = new NpgsqlCommand(
             """
             INSERT INTO accounts (account_number, owner, type, balance, interest_rate, overdraft_limit)
@@ -98,13 +98,13 @@ public class PostgresAccountRepository : IAccountRepository, IAsyncDisposable
         cmd.Parameters.AddWithValue((object?)interestRate ?? DBNull.Value);
         cmd.Parameters.AddWithValue((object?)overdraftLimit ?? DBNull.Value);
 
-        await cmd.ExecuteNonQueryAsync();
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public async Task<Account?> FindByIdAsync(long accountNumber)
+    public async Task<Account?> FindByIdAsync(long accountNumber, CancellationToken cancellationToken = default)
     {
-        var dataSource = await GetDataSourceAsync();
-        await using var conn = await dataSource.OpenConnectionAsync();
+        var dataSource = await GetDataSourceAsync(cancellationToken);
+        await using var conn = await dataSource.OpenConnectionAsync(cancellationToken);
         await using var cmd = new NpgsqlCommand(
             """
             SELECT account_number, owner, type, balance, interest_rate, overdraft_limit
@@ -113,17 +113,17 @@ public class PostgresAccountRepository : IAccountRepository, IAsyncDisposable
             conn);
         cmd.Parameters.AddWithValue(accountNumber);
 
-        await using var reader = await cmd.ExecuteReaderAsync();
-        if (!await reader.ReadAsync())
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
             return null;
 
         return RowToAccount(reader);
     }
 
-    public async Task<List<Account>> FindByOwnerAsync(string owner)
+    public async Task<List<Account>> FindByOwnerAsync(string owner, CancellationToken cancellationToken = default)
     {
-        var dataSource = await GetDataSourceAsync();
-        await using var conn = await dataSource.OpenConnectionAsync();
+        var dataSource = await GetDataSourceAsync(cancellationToken);
+        await using var conn = await dataSource.OpenConnectionAsync(cancellationToken);
         await using var cmd = new NpgsqlCommand(
             """
             SELECT account_number, owner, type, balance, interest_rate, overdraft_limit
@@ -133,17 +133,17 @@ public class PostgresAccountRepository : IAccountRepository, IAsyncDisposable
         cmd.Parameters.AddWithValue(owner);
 
         var results = new List<Account>();
-        await using var reader = await cmd.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
             results.Add(RowToAccount(reader));
 
         return results;
     }
 
-    public async Task<List<Account>> AllAsync()
+    public async Task<List<Account>> AllAsync(CancellationToken cancellationToken = default)
     {
-        var dataSource = await GetDataSourceAsync();
-        await using var conn = await dataSource.OpenConnectionAsync();
+        var dataSource = await GetDataSourceAsync(cancellationToken);
+        await using var conn = await dataSource.OpenConnectionAsync(cancellationToken);
         await using var cmd = new NpgsqlCommand(
             """
             SELECT account_number, owner, type, balance, interest_rate, overdraft_limit
@@ -152,19 +152,19 @@ public class PostgresAccountRepository : IAccountRepository, IAsyncDisposable
             conn);
 
         var results = new List<Account>();
-        await using var reader = await cmd.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
             results.Add(RowToAccount(reader));
 
         return results;
     }
 
-    public async Task UpdateAccountAsync(Account account)
+    public async Task UpdateAccountAsync(Account account, CancellationToken cancellationToken = default)
     {
         var balance = await account.GetBalanceAsync();
 
-        var dataSource = await GetDataSourceAsync();
-        await using var conn = await dataSource.OpenConnectionAsync();
+        var dataSource = await GetDataSourceAsync(cancellationToken);
+        await using var conn = await dataSource.OpenConnectionAsync(cancellationToken);
         await using var cmd = new NpgsqlCommand(
             """
             UPDATE accounts SET balance = $1, updated_at = NOW()
@@ -174,7 +174,7 @@ public class PostgresAccountRepository : IAccountRepository, IAsyncDisposable
         cmd.Parameters.AddWithValue(balance);
         cmd.Parameters.AddWithValue(account.AccountNumber);
 
-        await cmd.ExecuteNonQueryAsync();
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
     /// <summary>

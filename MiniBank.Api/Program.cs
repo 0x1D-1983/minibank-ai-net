@@ -96,17 +96,22 @@ app.MapPost("/chat", async (ChatRequest request, HttpContext context, Cancellati
 
     var authorizedBank = new AuthorizedBank(bank, principal.Owner);
     var workflow = BankingWorkflow.Create(
-        new AccountTools(authorizedBank),
-        new CustomerTools(authorizedBank),
-        new TransactionTools(authorizedBank),
-        new OperationTools(authorizedBank),
+        new AccountTools(authorizedBank, loggerFactory.CreateLogger<AccountTools>()),
+        new CustomerTools(authorizedBank, loggerFactory.CreateLogger<CustomerTools>()),
+        new TransactionTools(authorizedBank, loggerFactory.CreateLogger<TransactionTools>()),
+        new OperationTools(authorizedBank, loggerFactory.CreateLogger<OperationTools>()),
         ollamaOptions,
         loggerFactory: loggerFactory);
 
     try
     {
         var result = await workflow.RunDetailedAsync(request.Question, cancellationToken);
-        return Results.Ok(new ChatResponse(result.Output, result.ExecutorIds));
+        return Results.Ok(new ChatResponse(
+            result.Output,
+            result.ExecutorIds,
+            result.Result.Success,
+            result.Result.ErrorCode,
+            result.Result.Retryable));
     }
     catch (Exception ex) when (ex is not OperationCanceledException && AccountDenial.TryGet(ex, out var denial))
     {
@@ -185,11 +190,16 @@ public sealed record LoginResponse(string Token);
 
 public sealed record ChatRequest(string Question);
 
-public sealed record ChatResponse(string Output, IReadOnlyList<string> ExecutorIds);
+public sealed record ChatResponse(
+    string Output,
+    IReadOnlyList<string> ExecutorIds,
+    bool Success,
+    string? ErrorCode,
+    bool Retryable);
 
 file sealed class NoOpAuditLogger : IAuditLogger
 {
-    public Task LogAsync(long accountNumber, AccountAction action, decimal amount)
+    public Task LogAsync(long accountNumber, AccountAction action, decimal amount, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
 }
 

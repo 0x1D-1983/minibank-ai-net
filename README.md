@@ -125,7 +125,10 @@ Response:
 ```json
 {
   "output": "The balance of account 10001 is £1,532.42.",
-  "executorIds": ["IntentAgent", "QueryExecutor"]
+  "executorIds": ["IntentAgent", "QueryExecutor"],
+  "success": true,
+  "errorCode": "SUCCESS",
+  "retryable": false
 }
 ```
 

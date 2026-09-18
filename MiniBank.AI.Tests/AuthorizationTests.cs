@@ -1,9 +1,12 @@
 using MiniBank.Domain.Models;
 using MiniBank.Domain.Exceptions;
+using MiniBank.AI.Models;
 using Banking.Services;
 using MiniBank.Auth;
 using MiniBank.AI.Tests.Support;
 using MiniBank.AI.Tools;
+using Microsoft.Extensions.Logging.Abstractions;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace MiniBank.AI.Tests;
@@ -189,10 +192,13 @@ public sealed class AuthorizationTests
     {
         var (bank, _) = await CreateSeededBankAsync();
         var authorizedBank = new AuthorizedBank(bank, "John Smith");
-        var tools = new AccountTools(authorizedBank);
+        var tools = new AccountTools(authorizedBank, NullLogger<AccountTools>.Instance);
 
-        var accounts = await tools.FindAccountsByOwnerAsync();
+        var result = await tools.FindAccountsByOwnerAsync();
+        var accounts = Assert.IsType<List<AccountBalance>>(result.Data);
 
+        Assert.True(result.Success);
+        Assert.Equal("SUCCESS", result.ErrorCode);
         Assert.Equal(2, accounts.Count);
         Assert.All(accounts, account => Assert.Equal("John Smith", account.Owner));
     }
@@ -202,10 +208,13 @@ public sealed class AuthorizationTests
     {
         var (bank, _) = await CreateSeededBankAsync();
         var authorizedBank = new AuthorizedBank(bank, "John Smith");
-        var tools = new CustomerTools(authorizedBank);
+        var tools = new CustomerTools(authorizedBank, NullLogger<CustomerTools>.Instance);
 
-        var summary = await tools.GetOwnerTotalBalanceAsync();
+        var result = await tools.GetOwnerTotalBalanceAsync();
+        var summary = Assert.IsType<OwnerTotal>(result.Data);
 
+        Assert.True(result.Success);
+        Assert.Equal("SUCCESS", result.ErrorCode);
         Assert.Equal("John Smith", summary.Owner);
         Assert.Equal(2332.42m, summary.Total);
     }
@@ -215,90 +224,105 @@ public sealed class AuthorizationTests
     {
         var (bank, _) = await CreateSeededBankAsync();
         var authorizedBank = new AuthorizedBank(bank, "John Smith");
-        var tools = new CustomerTools(authorizedBank);
+        var tools = new CustomerTools(authorizedBank, NullLogger<CustomerTools>.Instance);
 
-        var count = await tools.CountDepositsByOwnerAsync();
+        var result = await tools.CountDepositsByOwnerAsync();
+        var count = Assert.IsType<OwnerDepositCount>(result.Data);
 
+        Assert.True(result.Success);
+        Assert.Equal("SUCCESS", result.ErrorCode);
         Assert.Equal("John Smith", count.Owner);
         Assert.Equal(2, count.DepositCount);
     }
 
     [Fact]
-    public async Task TransactionTools_GetDeposits_ThrowsForOtherCustomersAccount()
+    public async Task TransactionTools_GetDeposits_ReturnsNotFoundForOtherCustomersAccount()
     {
         var (bank, _) = await CreateSeededBankAsync();
         var authorizedBank = new AuthorizedBank(bank, "John Smith");
-        var tools = new TransactionTools(authorizedBank);
+        var tools = new TransactionTools(authorizedBank, NullLogger<TransactionTools>.Instance);
 
-        var ex = await Assert.ThrowsAsync<AccountNotFoundException>(
-            () => tools.GetDepositsAsync(20001));
+        var result = await tools.GetDepositsAsync(20001);
 
-        Assert.Contains("20001", ex.Message);
+        Assert.False(result.Success);
+        Assert.Equal("ACCOUNT_NOT_FOUND", result.ErrorCode);
+        Assert.False(result.Retryable);
+        Assert.Contains("20001", result.UserFacingMessage);
     }
 
     [Fact]
-    public async Task TransactionTools_GetAccountHistory_ThrowsForOtherCustomersAccount()
+    public async Task TransactionTools_GetAccountHistory_ReturnsNotFoundForOtherCustomersAccount()
     {
         var (bank, _) = await CreateSeededBankAsync();
         var authorizedBank = new AuthorizedBank(bank, "John Smith");
-        var tools = new TransactionTools(authorizedBank);
+        var tools = new TransactionTools(authorizedBank, NullLogger<TransactionTools>.Instance);
 
-        var ex = await Assert.ThrowsAsync<AccountNotFoundException>(
-            () => tools.GetAccountHistoryAsync(20001));
+        var result = await tools.GetAccountHistoryAsync(20001);
 
-        Assert.Contains("20001", ex.Message);
+        Assert.False(result.Success);
+        Assert.Equal("ACCOUNT_NOT_FOUND", result.ErrorCode);
+        Assert.False(result.Retryable);
+        Assert.Contains("20001", result.UserFacingMessage);
     }
 
     [Fact]
-    public async Task OperationTools_Deposit_ThrowsForOtherCustomersAccount()
+    public async Task OperationTools_Deposit_ReturnsNotFoundForOtherCustomersAccount()
     {
         var (bank, _) = await CreateSeededBankAsync();
-        var authorizedBank = new AuthorizedBank(bank, "John Smith");
-        var tools = new OperationTools(authorizedBank);
+        var tools = CreateOperationTools(bank, "John Smith");
 
-        var ex = await Assert.ThrowsAsync<AccountNotFoundException>(
-            () => tools.DepositAsync(20001, 100m));
+        var result = await tools.DepositAsync(20001, 100m);
 
-        Assert.Contains("20001", ex.Message);
+        Assert.False(result.Success);
+        Assert.Equal("ACCOUNT_NOT_FOUND", result.ErrorCode);
+        Assert.False(result.Retryable);
+        Assert.Contains("20001", result.UserFacingMessage);
     }
 
     [Fact]
-    public async Task OperationTools_Withdraw_ThrowsForOtherCustomersAccount()
+    public async Task OperationTools_Withdraw_ReturnsNotFoundForOtherCustomersAccount()
     {
         var (bank, _) = await CreateSeededBankAsync();
-        var authorizedBank = new AuthorizedBank(bank, "John Smith");
-        var tools = new OperationTools(authorizedBank);
+        var tools = CreateOperationTools(bank, "John Smith");
 
-        var ex = await Assert.ThrowsAsync<AccountNotFoundException>(
-            () => tools.WithdrawAsync(20001, 100m));
+        var result = await tools.WithdrawAsync(20001, 100m);
 
-        Assert.Contains("20001", ex.Message);
+        Assert.False(result.Success);
+        Assert.Equal("ACCOUNT_NOT_FOUND", result.ErrorCode);
+        Assert.False(result.Retryable);
+        Assert.Contains("20001", result.UserFacingMessage);
     }
 
     [Fact]
-    public async Task OperationTools_Transfer_ThrowsWhenSourceIsOtherCustomersAccount()
+    public async Task OperationTools_Transfer_ReturnsNotFoundWhenSourceIsOtherCustomersAccount()
     {
         var (bank, _) = await CreateSeededBankAsync();
-        var authorizedBank = new AuthorizedBank(bank, "John Smith");
-        var tools = new OperationTools(authorizedBank);
+        var tools = CreateOperationTools(bank, "John Smith");
 
-        var ex = await Assert.ThrowsAsync<AccountNotFoundException>(
-            () => tools.TransferAsync(20001, 10001, 100m));
+        var result = await tools.TransferAsync(20001, 10001, 100m);
 
-        Assert.Contains("20001", ex.Message);
+        Assert.False(result.Success);
+        Assert.Equal("ACCOUNT_NOT_FOUND", result.ErrorCode);
+        Assert.False(result.Retryable);
+        Assert.Contains("20001", result.UserFacingMessage);
     }
 
     [Fact]
     public async Task OperationTools_Transfer_AllowedWhenDestinationIsOtherCustomer()
     {
         var (bank, _) = await CreateSeededBankAsync();
-        var authorizedBank = new AuthorizedBank(bank, "John Smith");
-        var tools = new OperationTools(authorizedBank);
+        var tools = CreateOperationTools(bank, "John Smith");
 
         var result = await tools.TransferAsync(10001, 20001, 50m);
 
-        Assert.Contains("10001", result);
-        Assert.Contains("20001", result);
-        Assert.Contains("50", result);
+        Assert.True(result.Success);
+        Assert.Equal("SUCCESS", result.ErrorCode);
+        Assert.False(result.Retryable);
+        Assert.Contains("10001", result.UserFacingMessage);
+        Assert.Contains("20001", result.UserFacingMessage);
+        Assert.Contains("50", result.UserFacingMessage);
     }
+
+    private static OperationTools CreateOperationTools(Bank bank, string owner)
+        => new(new AuthorizedBank(bank, owner), NullLogger<OperationTools>.Instance);
 }

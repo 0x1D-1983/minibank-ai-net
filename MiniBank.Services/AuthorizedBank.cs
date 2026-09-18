@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
-using Banking.Repositories;
 using MiniBank.Domain.Exceptions;
 using MiniBank.Domain.Models;
 
@@ -36,9 +36,9 @@ public sealed class AuthorizedBank
     /// Finds an account if it belongs to the current customer.
     /// Returns null (not found) for accounts owned by others.
     /// </summary>
-    public async Task<Account?> FindAccountAsync(long accountNumber)
+    public async Task<Account?> FindAccountAsync(long accountNumber, CancellationToken cancellationToken = default)
     {
-        var account = await _bank.FindAccountAsync(accountNumber);
+        var account = await _bank.FindAccountAsync(accountNumber, cancellationToken);
         if (account is null)
             return null;
 
@@ -52,26 +52,26 @@ public sealed class AuthorizedBank
     /// Gets accounts owned by the specified owner, but only if that owner
     /// matches the current customer. Returns empty list for other owners.
     /// </summary>
-    public async Task<List<Account>> GetAccountsByOwnerAsync(string owner)
+    public async Task<List<Account>> GetAccountsByOwnerAsync(string owner, CancellationToken cancellationToken = default)
     {
         if (!IsCurrentOwner(owner))
             return [];
 
-        return await _bank.GetAccountsByOwnerAsync(owner);
+        return await _bank.GetAccountsByOwnerAsync(owner, cancellationToken);
     }
 
     /// <summary>
     /// Gets only the current customer's accounts (scoped version of GetAllAccountsAsync).
     /// </summary>
-    public Task<List<Account>> GetAllAccountsAsync()
-        => _bank.GetAccountsByOwnerAsync(_currentOwner);
+    public Task<List<Account>> GetAllAccountsAsync(CancellationToken cancellationToken = default)
+        => _bank.GetAccountsByOwnerAsync(_currentOwner, cancellationToken);
 
     /// <summary>
     /// Gets the total balance across the current customer's accounts only.
     /// </summary>
-    public async Task<decimal> GetTotalBalanceAsync()
+    public async Task<decimal> GetTotalBalanceAsync(CancellationToken cancellationToken = default)
     {
-        var accounts = await GetAllAccountsAsync();
+        var accounts = await GetAllAccountsAsync(cancellationToken);
         var balances = await Task.WhenAll(accounts.Select(a => a.GetBalanceAsync()));
         return balances.Sum();
     }
@@ -79,39 +79,43 @@ public sealed class AuthorizedBank
     /// <summary>
     /// Deposits into an account if it belongs to the current customer.
     /// </summary>
-    public async Task DepositAsync(long accountNumber, decimal amount)
+    public async Task DepositAsync(long accountNumber, decimal amount, CancellationToken cancellationToken = default)
     {
-        await RequireOwnedAccountAsync(accountNumber);
-        await _bank.DepositAsync(accountNumber, amount);
+        await RequireOwnedAccountAsync(accountNumber, cancellationToken);
+        await _bank.DepositAsync(accountNumber, amount, cancellationToken);
     }
 
     /// <summary>
     /// Withdraws from an account if it belongs to the current customer.
     /// </summary>
-    public async Task WithdrawAsync(long accountNumber, decimal amount)
+    public async Task WithdrawAsync(long accountNumber, decimal amount, CancellationToken cancellationToken = default)
     {
-        await RequireOwnedAccountAsync(accountNumber);
-        await _bank.WithdrawAsync(accountNumber, amount);
+        await RequireOwnedAccountAsync(accountNumber, cancellationToken);
+        await _bank.WithdrawAsync(accountNumber, amount, cancellationToken);
     }
 
     /// <summary>
     /// Transfers money where the source account must belong to the current customer.
     /// The destination can be any valid account (including other customers).
     /// </summary>
-    public async Task TransferAsync(long fromAccountNumber, long toAccountNumber, decimal amount)
+    public async Task TransferAsync(
+        long fromAccountNumber,
+        long toAccountNumber,
+        decimal amount,
+        CancellationToken cancellationToken = default)
     {
-        await RequireOwnedAccountAsync(fromAccountNumber);
+        await RequireOwnedAccountAsync(fromAccountNumber, cancellationToken);
 
-        var toAccount = await _bank.FindAccountAsync(toAccountNumber);
+        var toAccount = await _bank.FindAccountAsync(toAccountNumber, cancellationToken);
         if (toAccount is null)
             throw new AccountNotFoundException($"Account {toAccountNumber} doesn't exist.");
 
-        await _bank.TransferAsync(fromAccountNumber, toAccountNumber, amount);
+        await _bank.TransferAsync(fromAccountNumber, toAccountNumber, amount, cancellationToken);
     }
 
-    private async Task RequireOwnedAccountAsync(long accountNumber)
+    private async Task RequireOwnedAccountAsync(long accountNumber, CancellationToken cancellationToken)
     {
-        var account = await _bank.FindAccountAsync(accountNumber);
+        var account = await _bank.FindAccountAsync(accountNumber, cancellationToken);
         if (account is null)
             throw new AccountNotFoundException($"Account {accountNumber} doesn't exist.");
 

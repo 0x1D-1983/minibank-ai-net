@@ -10,6 +10,7 @@ using MiniBank.AI.Telemetry;
 using MiniBank.AI.Tools;
 using MiniBank.AI.Workflows;
 using Serilog;
+using System.Threading;
 using System.Threading.Tasks;
 using System;
 using System.IO;
@@ -53,10 +54,10 @@ try
 
     var authorizedBank = new AuthorizedBank(bank, principal.Owner);
     var workflow = BankingWorkflow.Create(
-        new AccountTools(authorizedBank),
-        new CustomerTools(authorizedBank),
-        new TransactionTools(authorizedBank),
-        new OperationTools(authorizedBank),
+        new AccountTools(authorizedBank, loggerFactory.CreateLogger<AccountTools>()),
+        new CustomerTools(authorizedBank, loggerFactory.CreateLogger<CustomerTools>()),
+        new TransactionTools(authorizedBank, loggerFactory.CreateLogger<TransactionTools>()),
+        new OperationTools(authorizedBank, loggerFactory.CreateLogger<OperationTools>()),
         OllamaOptions.FromConfiguration(builder.Configuration),
         loggerFactory: loggerFactory);
 
@@ -186,6 +187,6 @@ static async Task<Bank> CreateBankAsync()
 
 file sealed class NoOpAuditLogger : IAuditLogger
 {
-    public Task LogAsync(long accountNumber, AccountAction action, decimal amount)
+    public Task LogAsync(long accountNumber, AccountAction action, decimal amount, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
 }
