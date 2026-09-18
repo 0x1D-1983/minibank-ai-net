@@ -19,8 +19,6 @@ public static class QueryTools
         [
             MiniBankChat.Tool(accountTools.GetBalanceAsync, "get_balance", toolLogger),
             MiniBankChat.Tool(accountTools.FindAccountsByOwnerAsync, "find_accounts_by_owner", toolLogger),
-            MiniBankChat.Tool(accountTools.GetTotalValueAsync, "get_total_value", toolLogger),
-            MiniBankChat.Tool(accountTools.GetHighestBalanceAccountAsync, "get_highest_balance_account", toolLogger),
             MiniBankChat.Tool(customerTools.GetOwnerTotalBalanceAsync, "get_owner_total_balance", toolLogger),
             MiniBankChat.Tool(customerTools.CountDepositsByOwnerAsync, "count_deposits_by_owner", toolLogger),
             MiniBankChat.Tool(transactionTools.GetDepositsAsync, "get_deposits", toolLogger),

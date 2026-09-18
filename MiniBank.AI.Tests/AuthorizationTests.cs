@@ -211,32 +211,6 @@ public sealed class AuthorizationTests
     }
 
     [Fact]
-    public async Task AccountTools_GetTotalValue_ScopedToCurrentCustomer()
-    {
-        var (bank, _) = await CreateSeededBankAsync();
-        var authorizedBank = new AuthorizedBank(bank, "John Smith");
-        var tools = new AccountTools(authorizedBank);
-
-        var total = await tools.GetTotalValueAsync();
-
-        Assert.Equal(2332.42m, total);
-    }
-
-    [Fact]
-    public async Task AccountTools_GetHighestBalanceAccount_ScopedToCurrentCustomer()
-    {
-        var (bank, _) = await CreateSeededBankAsync();
-        var authorizedBank = new AuthorizedBank(bank, "John Smith");
-        var tools = new AccountTools(authorizedBank);
-
-        var highest = await tools.GetHighestBalanceAccountAsync();
-
-        Assert.NotNull(highest);
-        Assert.Equal(10001L, highest.AccountNumber);
-        Assert.Equal(1532.42m, highest.Balance);
-    }
-
-    [Fact]
     public async Task CustomerTools_GetOwnerTotalBalance_UsesCurrentCustomer()
     {
         var (bank, _) = await CreateSeededBankAsync();

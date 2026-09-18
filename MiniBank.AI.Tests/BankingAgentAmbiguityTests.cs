@@ -32,22 +32,8 @@ public sealed class BankingAgentAmbiguityTests
 
         AgentAssert.ChoseTool(harness.Chat, "get_owner_total_balance");
         AgentAssert.ReceivedNoArguments(harness.Chat, "get_owner_total_balance");
-        AgentAssert.DidNotChoose(harness.Chat, "get_total_value");
         Assert.Equal(0, harness.Repository.AllCallCount);
         AgentAssert.AnswerContainsFacts(answer, 2332.42m);
-    }
-
-    [Fact(Timeout = 180_000)]
-    public async Task TotalValueOfAllAccounts_UsesBankTotal_NotOwnerTotal()
-    {
-        var harness = await AgentTestHarness.CreateAsync();
-        var answer = await harness.AskAsync("What's the total across every account in the bank?");
-
-        AgentAssert.ChoseTool(harness.Chat, "get_total_value");
-        AgentAssert.DidNotChoose(harness.Chat, "get_owner_total_balance");
-        Assert.True(harness.Repository.AllCallCount > 0);
-        Assert.Empty(harness.Repository.FindByOwnerArgs);
-        AgentAssert.AnswerContainsFacts(answer, 9782.42m);
     }
 
     [Fact(Timeout = 180_000)]
@@ -87,17 +73,6 @@ public sealed class BankingAgentAmbiguityTests
         AgentAssert.ReceivedArgument(harness.Chat, "get_account_history", "accountNumber", 10001L);
         AgentAssert.DidNotChoose(harness.Chat, "get_deposits");
         AgentAssert.AnswerContainsFacts(answer, 10001L, 1532.42m);
-    }
-
-    [Fact(Timeout = 180_000)]
-    public async Task LargestAccount_UsesHighestBalance_NotBankTotal()
-    {
-        var harness = await AgentTestHarness.CreateAsync();
-        var answer = await harness.AskAsync("Which customer account is the largest?");
-
-        AgentAssert.ChoseTool(harness.Chat, "get_highest_balance_account");
-        AgentAssert.DidNotChoose(harness.Chat, "get_total_value");
-        AgentAssert.AnswerContainsFacts(answer, "Jane Doe", 5000.00m);
     }
 
     [Fact(Timeout = 180_000)]

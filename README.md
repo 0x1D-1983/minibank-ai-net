@@ -136,7 +136,6 @@ Unauthenticated requests to `/chat` return `401 Unauthorized`. The API uses the 
 Each customer can only access their own accounts:
 
 - **John Smith** can query accounts 10001 and 10002, but not 20001 (Jane's) or 1234567890 (Alice's)
-- Bank-wide queries (`get_total_value`, `get_highest_balance_account`) are scoped to the customer's own accounts
 - Transfers are allowed **from** your own accounts **to** any account (you can pay someone else)
 - You cannot transfer **from** another customer's account
 
@@ -164,7 +163,7 @@ Owner tools do not take a customer name. They use the logged-in customer from `A
 **Note:** After authentication, you can only query your own accounts. For example, if logged in as John Smith (username: `john`):
 - `What is my total balance?` → £2,332.42 (10001 + 10002)
 - `What is Jane's balance?` → still John’s total (£2,332.42); Jane’s accounts are not visible
-- `What is the highest balance account?` → Account 10001 with £1,532.42 (scoped to your accounts)
+- `Which accounts do I have?` → 10001 (£1,532.42) and 10002 (£800.00)
 
 ## Workflow
 
@@ -250,15 +249,13 @@ Listing deposits that already happened is a **query**, not `classify_deposit`.
 
 ### READ (query agent)
 
-Used only by `BankingAgent` / Query Executor. These never change balances. Owner and bank-wide tools are scoped to the logged-in customer (`AuthorizedBank`); they take no owner name.
+Used only by `BankingAgent` / Query Executor. These never change balances. Tools are scoped to the logged-in customer (`AuthorizedBank`); they take no owner name.
 
 | Tool | When |
 |---|---|
 | `get_balance` | User supplied a specific account number they own |
 | `get_owner_total_balance` | Current customer’s total, when no account number was given |
 | `find_accounts_by_owner` | List the current customer’s accounts |
-| `get_total_value` | Sum of the current customer’s accounts |
-| `get_highest_balance_account` | The current customer’s account with the largest balance |
 | `count_deposits_by_owner` | How many deposits the current customer has made |
 | `get_deposits` | Deposits on one numbered account they own |
 | `get_account_history` | Full history of one numbered account they own |

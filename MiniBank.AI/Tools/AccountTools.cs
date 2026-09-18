@@ -32,28 +32,6 @@ public sealed class AccountTools
         return await ToBalancesAsync(accounts);
     }
 
-    [Description("Get the total value of every account in the bank (sum of all balances).")]
-    public Task<decimal> GetTotalValueAsync()
-        => _bank.GetTotalBalanceAsync();
-
-    [Description("Find the account that currently has the highest balance.")]
-    public async Task<AccountBalance?> GetHighestBalanceAccountAsync()
-    {
-        var accounts = await _bank.GetAllAccountsAsync();
-        if (accounts.Count == 0)
-            return null;
-
-        AccountBalance? highest = null;
-        foreach (var account in accounts)
-        {
-            var snapshot = await ToBalanceAsync(account);
-            if (highest is null || snapshot.Balance > highest.Balance)
-                highest = snapshot;
-        }
-
-        return highest;
-    }
-
     private async Task<Account> RequireAccountAsync(long accountNumber)
     {
         var account = await _bank.FindAccountAsync(accountNumber);
