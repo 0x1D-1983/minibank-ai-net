@@ -1,11 +1,10 @@
 using System;
 
-namespace MiniBank.AI.Auth;
+namespace MiniBank.Auth;
 
 /// <summary>
-/// Represents an authenticated customer. The <see cref="Owner"/> property
-/// matches the <see cref="MiniBank.Domain.Models.Account.Owner"/> string
-/// used by seed data (e.g. "John Smith").
+/// Represents an authenticated customer. <see cref="Owner"/> matches the
+/// account owner string used by seed data (for example "John Smith").
 /// </summary>
 public sealed class CustomerPrincipal
 {
@@ -16,7 +15,7 @@ public sealed class CustomerPrincipal
     }
 
     /// <summary>
-    /// The customer's name, matching Account.Owner.
+    /// The customer's name, matching <c>Account.Owner</c>.
     /// </summary>
     public string Owner { get; }
 }

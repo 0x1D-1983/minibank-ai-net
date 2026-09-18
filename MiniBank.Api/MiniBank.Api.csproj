@@ -6,6 +6,7 @@
     <PackageReference Include="Serilog.Settings.Configuration" Version="9.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
     <ProjectReference Include="..\MiniBank.AI\MiniBank.AI.csproj" />
+    <ProjectReference Include="..\MiniBank.Auth\MiniBank.Auth.csproj" />
   </ItemGroup>
 
   <ItemGroup>

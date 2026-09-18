@@ -1,4 +1,4 @@
-using MiniBank.AI.Auth;
+using MiniBank.Auth;
 using System;
 using System.Threading.Tasks;
 

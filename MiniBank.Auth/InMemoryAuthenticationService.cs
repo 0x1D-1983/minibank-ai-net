@@ -5,7 +5,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace MiniBank.AI.Auth;
+namespace MiniBank.Auth;
 
 /// <summary>
 /// In-memory mock identity server for demo purposes. Holds three demo users

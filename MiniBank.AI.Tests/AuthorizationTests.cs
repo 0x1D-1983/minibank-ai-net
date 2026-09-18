@@ -1,7 +1,7 @@
 using MiniBank.Domain.Models;
 using MiniBank.Domain.Exceptions;
 using Banking.Services;
-using MiniBank.AI.Auth;
+using MiniBank.Auth;
 using MiniBank.AI.Tests.Support;
 using MiniBank.AI.Tools;
 using System.Threading.Tasks;

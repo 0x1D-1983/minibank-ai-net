@@ -1,7 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace MiniBank.AI.Auth;
+namespace MiniBank.Auth;
 
 /// <summary>
 /// Replaceable seam for authentication. A later issue can swap the in-memory

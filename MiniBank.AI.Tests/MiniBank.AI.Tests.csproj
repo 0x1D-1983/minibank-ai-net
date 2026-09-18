@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MiniBank.AI\MiniBank.AI.csproj" />
+    <ProjectReference Include="..\MiniBank.Auth\MiniBank.Auth.csproj" />
   </ItemGroup>
 
   <ItemGroup>

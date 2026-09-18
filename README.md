@@ -11,6 +11,7 @@ The bank itself lives in this repo: accounts, concurrency, persistence, and the 
 | `MiniBank.Domain` | Accounts (`CurrentAccount`, `SavingsAccount`), exceptions, per-account locks |
 | `MiniBank.Repositories` | `IAccountRepository` and `PostgresAccountRepository` |
 | `MiniBank.Services` | `Bank` (deposit / withdraw / transfer) and `IAuditLogger` |
+| `MiniBank.Auth` | `IAuthenticationService` and in-memory mock identity server |
 | `MiniBank.AI` | Agents, tools, workflow, telemetry |
 | `MiniBank.Api` | Minimal API host + Serilog + OpenTelemetry |
 | `MiniBank.Console` | Interactive host + Serilog + OpenTelemetry |
