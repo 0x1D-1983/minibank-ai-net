@@ -24,6 +24,18 @@ public sealed class BankingWorkflowTests
     }
 
     [Fact(Timeout = 180_000)]
+    public async Task JaneDoeBalanceWithoutQuestionMark_ReturnsHerAccountNumber_NotAlice()
+    {
+        var harness = await AgentTestHarness.CreateWorkflowAsync();
+        var result = await harness.AskDetailedAsync("What's the account balance of Jane Doe");
+
+        Assert.Contains(BankingWorkflow.IntentAgentId, result.ExecutorIds);
+        Assert.Contains(BankingWorkflow.QueryExecutorId, result.ExecutorIds);
+        AgentAssert.AnswerContainsFacts(result.Output, "Jane Doe", 20001L, 5000.00m);
+        Assert.DoesNotContain("1234567890", result.Output, StringComparison.Ordinal);
+    }
+
+    [Fact(Timeout = 180_000)]
     public async Task Transfer_GoesThroughApprovalAndMovesMoney()
     {
         var harness = await AgentTestHarness.CreateWorkflowAsync();
