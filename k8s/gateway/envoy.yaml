@@ -102,7 +102,7 @@ static_resources:
                     - header:
                         name: x-api-key
                         string_match:
-                          exact: ""
+                          exact: "dev-local-key"
           - name: envoy.filters.http.local_ratelimit
             typed_config:
               "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
