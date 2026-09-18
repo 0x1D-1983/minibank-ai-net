@@ -18,9 +18,10 @@ public sealed class CustomerToolsTests
         repository.ClearRecordings();
 
         var authorizedBank = new AuthorizedBank(bank, "Alice Example");
-        var total = await new CustomerTools(authorizedBank).GetOwnerTotalBalanceAsync();
+        var summary = await new CustomerTools(authorizedBank).GetOwnerTotalBalanceAsync();
 
-        Assert.Equal(2_450.00m, total);
+        Assert.Equal("Alice Example", summary.Owner);
+        Assert.Equal(2_450.00m, summary.Total);
         AgentAssert.LookedUpOwner(repository, "Alice Example");
     }
 }

@@ -12,8 +12,8 @@ using MiniBank.Domain.Models;
 namespace MiniBank.AI.Tests;
 
 /// <summary>
-/// Unauthorized account access through the workflow, without Ollama.
-/// Query denials become a normal not-found answer; writes are rejected by TransferExecutor.
+/// Query lookups are scoped to the logged-in customer; writes to another
+/// customer's account are rejected by TransferExecutor.
 /// </summary>
 public sealed class BankingWorkflowAuthorizationTests
 {
@@ -24,27 +24,23 @@ public sealed class BankingWorkflowAuthorizationTests
     };
 
     [Fact]
-    public async Task UnauthorizedAccountQuery_ReturnsAccountNotFoundAnswer()
+    public async Task UnauthorizedAccountQuery_ReturnsOnlyCurrentCustomerAccounts()
     {
         var workflow = await CreateWorkflowAsync(options =>
         {
             if (ScriptedChatClient.HasTool(options, "classify_query"))
                 return ScriptedChatClient.FunctionCall("classify_query");
 
-            if (ScriptedChatClient.HasTool(options, "get_balance"))
-            {
-                return ScriptedChatClient.FunctionCall(
-                    "get_balance",
-                    new Dictionary<string, object?> { ["accountNumber"] = 20001L });
-            }
+            if (ScriptedChatClient.HasTool(options, "find_accounts_by_owner"))
+                return ScriptedChatClient.FunctionCall("find_accounts_by_owner");
 
-            return ScriptedChatClient.Text("Account 20001 doesn't exist.");
+            return ScriptedChatClient.Text("Account 10001 has £1,532.42. There is no account 20001 among your accounts.");
         });
 
         var result = await workflow.RunDetailedAsync("What's the balance of account 20001?");
 
-        Assert.Contains("doesn't exist", result.Output, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("20001", result.Output);
+        AgentAssert.AnswerContainsFacts(result.Output, 1532.42m, 10001L);
+        Assert.DoesNotContain("5000", result.Output.Replace(",", "", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.Contains(BankingWorkflow.QueryExecutorId, result.ExecutorIds);
         Assert.DoesNotContain(BankingWorkflow.TransferExecutorId, result.ExecutorIds);
     }

@@ -17,7 +17,6 @@ public static class QueryTools
         ILogger toolLogger)
         =>
         [
-            MiniBankChat.Tool(accountTools.GetBalanceAsync, "get_balance", toolLogger),
             MiniBankChat.Tool(accountTools.FindAccountsByOwnerAsync, "find_accounts_by_owner", toolLogger),
             MiniBankChat.Tool(customerTools.GetOwnerTotalBalanceAsync, "get_owner_total_balance", toolLogger),
             MiniBankChat.Tool(customerTools.CountDepositsByOwnerAsync, "count_deposits_by_owner", toolLogger),

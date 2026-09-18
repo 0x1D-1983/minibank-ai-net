@@ -158,11 +158,11 @@ Ollama-backed tests fail immediately if Ollama is not reachable. They are not pa
 
 Bank total: **£9,782.42**. John Smith’s combined balance: **£2,332.42**.
 
-Owner tools do not take a customer name. They use the logged-in customer from `AuthorizedBank`. Asking about someone else still returns **your** accounts.
+Owner tools do not take a customer name. They use the logged-in customer from `AuthorizedBank` and return that customer's **name** with the figures. The query agent is told who it is assisting so it can tell “my balance” from a request about someone else.
 
 **Note:** After authentication, you can only query your own accounts. For example, if logged in as John Smith (username: `john`):
-- `What is my total balance?` → £2,332.42 (10001 + 10002)
-- `What is Jane's balance?` → still John’s total (£2,332.42); Jane’s accounts are not visible
+- `What is my total balance?` → John Smith's total is £2,332.42 (10001 + 10002)
+- `What is Jane's balance?` → declined: you can only see John Smith's accounts; Jane is not visible. The answer must not present John's £2,332.42 as Jane's.
 - `Which accounts do I have?` → 10001 (£1,532.42) and 10002 (£800.00)
 
 ## Workflow
@@ -253,9 +253,8 @@ Used only by `BankingAgent` / Query Executor. These never change balances. Tools
 
 | Tool | When |
 |---|---|
-| `get_balance` | User supplied a specific account number they own |
+| `find_accounts_by_owner` | List the current customer’s accounts and balances (including a specific account) |
 | `get_owner_total_balance` | Current customer’s total, when no account number was given |
-| `find_accounts_by_owner` | List the current customer’s accounts |
 | `count_deposits_by_owner` | How many deposits the current customer has made |
 | `get_deposits` | Deposits on one numbered account they own |
 | `get_account_history` | Full history of one numbered account they own |
@@ -287,7 +286,7 @@ Most tests use the real Ollama model, not a scripted chat client. `RecordingChat
 | Class | What it asserts |
 |---|---|
 | `BankingAgentTests` | Unambiguous lookups: correct READ tool, arguments, and facts in the answer |
-| `BankingAgentAmbiguityTests` | Similar questions that must not pick the neighbouring tool |
+| `BankingAgentAmbiguityTests` | Neighbouring tools, and a named other customer is not answered with the logged-in total |
 | `BankingWorkflowTests` | READ skips approval/transfer; approved transfer updates balances; rejected transfer does not |
 | `CustomerToolsTests` | Owner total uses the authorized customer (no LLM) |
 | `AuthorizationTests` | Per-customer access control: John cannot read Jane's balance or debit 20001 (no LLM) |

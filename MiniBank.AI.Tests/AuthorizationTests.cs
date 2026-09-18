@@ -185,19 +185,6 @@ public sealed class AuthorizationTests
     }
 
     [Fact]
-    public async Task AccountTools_GetBalance_ReturnsNotFoundForOtherCustomersAccount()
-    {
-        var (bank, _) = await CreateSeededBankAsync();
-        var authorizedBank = new AuthorizedBank(bank, "John Smith");
-        var tools = new AccountTools(authorizedBank);
-
-        var ex = await Assert.ThrowsAsync<AccountNotFoundException>(
-            () => tools.GetBalanceAsync(20001));
-
-        Assert.Contains("20001", ex.Message);
-    }
-
-    [Fact]
     public async Task AccountTools_FindAccountsByOwner_ReturnsCurrentCustomerAccounts()
     {
         var (bank, _) = await CreateSeededBankAsync();
@@ -217,9 +204,10 @@ public sealed class AuthorizationTests
         var authorizedBank = new AuthorizedBank(bank, "John Smith");
         var tools = new CustomerTools(authorizedBank);
 
-        var total = await tools.GetOwnerTotalBalanceAsync();
+        var summary = await tools.GetOwnerTotalBalanceAsync();
 
-        Assert.Equal(2332.42m, total);
+        Assert.Equal("John Smith", summary.Owner);
+        Assert.Equal(2332.42m, summary.Total);
     }
 
     [Fact]
@@ -231,7 +219,8 @@ public sealed class AuthorizationTests
 
         var count = await tools.CountDepositsByOwnerAsync();
 
-        Assert.Equal(2, count);
+        Assert.Equal("John Smith", count.Owner);
+        Assert.Equal(2, count.DepositCount);
     }
 
     [Fact]

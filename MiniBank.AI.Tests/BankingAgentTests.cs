@@ -7,14 +7,14 @@ namespace MiniBank.AI.Tests;
 public sealed class BankingAgentTests
 {
     [Fact(Timeout = 180_000)]
-    public async Task BalanceQuestion_UsesGetBalance_WithAccountNumber()
+    public async Task BalanceQuestion_UsesFindAccountsByOwner()
     {
         var harness = await AgentTestHarness.CreateAsync();
         var answer = await harness.AskAsync("What's the balance of account 10001?");
 
-        AgentAssert.ChoseTool(harness.Chat, "get_balance");
-        AgentAssert.ReceivedArgument(harness.Chat, "get_balance", "accountNumber", 10001L);
-        Assert.Contains(10001L, harness.Repository.FindByIdArgs);
+        AgentAssert.ChoseTool(harness.Chat, "find_accounts_by_owner");
+        AgentAssert.ReceivedNoArguments(harness.Chat, "find_accounts_by_owner");
+        AgentAssert.LookedUpOwner(harness.Repository, "John Smith");
         AgentAssert.AnswerContainsFacts(answer, 1532.42m);
     }
 

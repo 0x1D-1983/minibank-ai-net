@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using MiniBank.Domain.Exceptions;
 using MiniBank.Domain.Models;
 using Banking.Services;
 using MiniBank.AI.Models;
@@ -17,28 +16,11 @@ public sealed class AccountTools
         _bank = bank;
     }
 
-    [Description("Get the current balance of one account. Call only when the user supplied that account number. Do not invent an account number. If the user named a customer instead, use get_owner_total_balance.")]
-    public async Task<decimal> GetBalanceAsync(
-        [Description("The account number supplied by the user.")] long accountNumber)
-    {
-        var account = await RequireAccountAsync(accountNumber);
-        return await account.GetBalanceAsync();
-    }
-
-    [Description("List all accounts owned by the current customer, including each account number and balance.")]
+    [Description("List all accounts owned by the logged-in customer, including each account number and balance. Use this for any balance question, including a specific account: pick the matching account from the list. Never invent an account number.")]
     public async Task<List<AccountBalance>> FindAccountsByOwnerAsync()
     {
         var accounts = await _bank.GetAllAccountsAsync();
         return await ToBalancesAsync(accounts);
-    }
-
-    private async Task<Account> RequireAccountAsync(long accountNumber)
-    {
-        var account = await _bank.FindAccountAsync(accountNumber);
-        if (account is null)
-            throw new AccountNotFoundException($"Account {accountNumber} doesn't exist.");
-
-        return account;
     }
 
     private static async Task<List<AccountBalance>> ToBalancesAsync(IEnumerable<Account> accounts)
